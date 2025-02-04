@@ -1,6 +1,5 @@
 import pathlib
 import sys
-import yappi
 
 project_path = pathlib.Path(__file__).parent.resolve()
 
@@ -11,6 +10,7 @@ sys.path.append(str(project_path / "thirdparty" / "hdlregression"))
 sys.path.append('thirdparty/hdlregression') # Just to make LSP server understand path
 
 from hdlregression import HDLRegression
+
 
 def init(hr):
     # Alternative: Compile ALL of UVVM
@@ -42,6 +42,7 @@ def init(hr):
 
     hr.gen_report(report_file="sim_report.xml")
 
+
 def main():
     hr = HDLRegression()
     init(hr)
@@ -62,21 +63,6 @@ def main():
     else:
         return hr.start()
 
+
 if __name__ == '__main__':
-
-    PROFILE_CODE = False
-
-    if PROFILE_CODE:
-        yappi.set_clock_type("cpu")
-        yappi.start()
-
-        retval = main()
-
-        yappi.stop()
-
-        stats = yappi.get_func_stats()
-        stats.save("run.prof", "pstat")
-
-        sys.exit(retval)
-    else:
-        sys.exit(main())
+    sys.exit(main())
