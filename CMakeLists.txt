@@ -33,3 +33,10 @@ add_custom_target(hdl_run
 add_executable(uvvm_cosim_example_client
                src/cpp/uvvm_cosim_client_example.cpp)
 target_include_directories(uvvm_cosim_example_client PRIVATE thirdparty/json-rpc-cxx/include thirdparty/json-rpc-cxx/vendor thirdparty/json-rpc-cxx/examples)
+
+
+option(RUN_UNIT_TESTS "Run Catch2 Unit tests" ON)
+if(RUN_UNIT_TESTS)
+  enable_testing()
+  add_subdirectory(test/cpp)
+endif()
