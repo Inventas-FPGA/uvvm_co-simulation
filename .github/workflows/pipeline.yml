@@ -1,0 +1,62 @@
+name: CI pipeline
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Extra permissions required by publish test result step
+    permissions:
+      checks: write
+      pull-requests: write
+
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: 'Install'
+        run: sudo apt-get update && sudo apt-get install lcov
+
+      - name: 'Configure'
+        run: |
+          cmake -H. -Bbuild -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DENABLE_UNIT_TESTS=On -DENABLE_COVERAGE=On
+
+      - name: 'Build unit tests'
+        run: |
+          cmake --build build --config Debug --target test_uvvm_cosim_types
+
+      - name: 'Run unit tests'
+        working-directory: ./build/test/cpp
+        run: |
+          ./test_uvvm_cosim_types
+
+      - name: generate coverage
+        working-directory: ./build
+        run: |
+          make cov
+
+      - name: 'Install pip packages'
+        run: |
+          pip install -r requirements.txt
+
+      - name: 'Generate JSON coverage report'
+        working-directory: ./build
+        run: |
+          gcovr -r .. . --txt-metric=branch --cobertura > coverage.xml
+
+
+      - name: 'Publish unit test results'
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            ./build/coverage.xml
+
+# Todo: codecov upload
+#      - name: 'Upload coverage reports to Codecov'
+#        uses: codecov/codecov-action@eaaf4bedf32dbdc6b720b63067d99c4d77d6047d # v3
+#        env:
+#          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
