@@ -12,13 +12,33 @@ jobs:
       pull-requests: write
 
     steps:
+      - name: 'Install Catch2 and LCOV in runner'
+        run: sudo apt-get update && sudo apt-get install catch2 lcov
+
+      - name: 'Install NVC dependencies in runner'
+        run: sudo apt-get install build-essential automake autoconf flex check llvm-dev pkg-config zlib1g-dev libdw-dev libffi-dev libzstd-dev
+
+      - name: Clone nickg/nvc PUBLIC repository
+        uses: GuillaumeFalourd/clone-github-repo-action@v2.3
+        with:
+          depth: 1
+          branch: 'main'
+          owner: 'nickg'
+          repository: 'nvc'
+
+      - name: 'Build and install NVC in runner'
+        run: |
+          cd nvc
+          ./autogen.sh
+          mkdir build && cd build
+          ../configure --prefix=/opt
+          make
+          sudo make install
+
       - name: 'Checkout'
         uses: actions/checkout@v4
         with:
           submodules: true
-
-      - name: 'Install'
-        run: sudo apt-get update && sudo apt-get install lcov
 
       - name: 'Configure'
         run: |
