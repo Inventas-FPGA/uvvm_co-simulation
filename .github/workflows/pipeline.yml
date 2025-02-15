@@ -22,7 +22,7 @@ jobs:
         uses: GuillaumeFalourd/clone-github-repo-action@v2.3
         with:
           depth: 1
-          branch: 'main'
+          branch: 'master'
           owner: 'nickg'
           repository: 'nvc'
 
