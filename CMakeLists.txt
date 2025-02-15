@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_SOURCE_DIR}/cmake")
+
 project(uvvm_cosim VERSION 0.0.1 DESCRIPTION "UVVM Co-simulation JSON-RPC server for use with VHDL VHPI")
 
 set(CMAKE_CXX_STANDARD 20)
@@ -34,9 +36,21 @@ add_executable(uvvm_cosim_example_client
                src/cpp/uvvm_cosim_client_example.cpp)
 target_include_directories(uvvm_cosim_example_client PRIVATE thirdparty/json-rpc-cxx/include thirdparty/json-rpc-cxx/vendor thirdparty/json-rpc-cxx/examples)
 
+option(ENABLE_UNIT_TESTS "Run Catch2 Unit tests" ON)
+option(ENABLE_COVERAGE "Enable code coverage for unit tests" OFF)
 
-option(RUN_UNIT_TESTS "Run Catch2 Unit tests" ON)
-if(RUN_UNIT_TESTS)
+if(ENABLE_UNIT_TESTS)
+  if(ENABLE_COVERAGE)
+    include(coverage)
+    set(COVERAGE_EXCLUDE_DIRS
+      "${CMAKE_SOURCE_DIR}/test/cpp/*"
+      "${CMAKE_SOURCE_DIR}/thirdparty/*"
+      "/usr/*"
+      "/opt/*"
+    )
+    add_coverage_target(${COVERAGE_EXCLUDE_DIRS})
+  endif()
+
   enable_testing()
   add_subdirectory(test/cpp)
 endif()
