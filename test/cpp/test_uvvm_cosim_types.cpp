@@ -1,7 +1,7 @@
-#define CONFIG_CATCH_MAIN
+#define CATCH_CONFIG_MAIN
+#include <catch2/catch.hpp>
 #include <map>
 #include <vector>
-#include <catch2/catch.hpp>
 #include "nlohmann/json.hpp"
 #include "uvvm_cosim_types.hpp"
 
