@@ -11,6 +11,11 @@ jobs:
       checks: write
       pull-requests: write
 
+
+    # TODO:
+    # Not the most efficient pipeline at the moment..
+    # Use a docker container for NVC in the future
+
     steps:
       - name: 'Install LCOV in runner'
         run: sudo apt-get update && sudo apt-get install lcov
@@ -65,8 +70,7 @@ jobs:
       - name: 'Generate JSON coverage report'
         working-directory: ./build
         run: |
-          gcovr -r .. . --txt-metric=branch --cobertura > coverage.xml
-
+          lcov_cobertura cov.info -d --output coverage.xml
 
       - name: 'Publish unit test results'
         uses: EnricoMi/publish-unit-test-result-action@v2
