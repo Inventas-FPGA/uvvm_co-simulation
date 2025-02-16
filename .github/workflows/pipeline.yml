@@ -78,7 +78,7 @@ jobs:
           path: ./build/coverage.xml
           show_line: true
           show_branch: true
-          #minimum_coverage: 75
+          minimum_coverage: 75
 
 # Todo: codecov upload
 #      - name: 'Upload coverage reports to Codecov'
