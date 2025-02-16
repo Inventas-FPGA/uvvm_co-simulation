@@ -45,6 +45,7 @@ if(ENABLE_UNIT_TESTS)
     set(COVERAGE_EXCLUDE_DIRS
       "${CMAKE_SOURCE_DIR}/test/cpp/*"
       "${CMAKE_SOURCE_DIR}/thirdparty/*"
+      "*/catch2/*"
       "/usr/*"
       "/opt/*"
     )
