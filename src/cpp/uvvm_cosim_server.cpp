@@ -71,6 +71,33 @@ UvvmCosimServer::WaitForStartSim()
   }
 }
 
+bool
+UvvmCosimServer::VvcListenEnabled(std::string vvc_type,
+				  int vvc_instance_id)
+{
+  VvcInstance vvc = {
+    .vvc_type = vvc_type,
+    .vvc_channel = (vvc_type == "UART_VVC" ? "TX" : "NA"),
+    .vvc_instance_id = vvc_instance_id
+  };
+
+  bool listen = vvcInstanceMap([&](auto &vvc_map) {
+    if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
+      return it->first.listen_enable;
+    } else {
+      std::cerr << "VVC with";
+      std::cerr << " type=" << vvc.vvc_type;
+      std::cerr << " channel=" << vvc.vvc_channel;
+      std::cerr << " instance_id=" << vvc.vvc_instance_id;
+      std::cerr << " does not exist." << std::endl;
+
+      return false;
+    }
+  });
+
+  return listen;
+}
+
 void
 UvvmCosimServer::AddVvc(std::string vvc_type, std::string vvc_channel,
 			int vvc_instance_id, std::string vvc_cfg_str)
@@ -214,6 +241,38 @@ UvvmCosimServer::GetVvcList()
   
   response.success = true;
   response.result = json(vec);
+
+  return response;
+}
+
+JsonResponse
+UvvmCosimServer::SetVvcListen(std::string vvc_type, int vvc_id, bool listen_enable)
+{
+  JsonResponse response;
+
+  VvcInstance vvc = {
+    .vvc_type = vvc_type,
+    .vvc_channel = (vvc_type == "UART_VVC" ? "TX" : "NA"),
+    .vvc_instance_id = vvc_id
+  };
+
+  vvcInstanceMap([&](auto &vvc_map) {
+    if (decltype(vvc_map.begin()) it = vvc_map.find(vvc); it != vvc_map.end()) {
+      it->first.listen_enable = listen_enable;
+      response.success = true;
+      response.result = json{};
+
+    } else {
+      std::string error_str = "VVC with";
+      error_str += " type=" + vvc.vvc_type;
+      error_str += " channel=" + vvc.vvc_channel;
+      error_str += " instance_id=" + std::to_string(vvc.vvc_instance_id);
+      error_str += " does not exist.";
+
+      response.success = false;
+      response.result = json{{"error", error_str}};
+    }
+  });
 
   return response;
 }

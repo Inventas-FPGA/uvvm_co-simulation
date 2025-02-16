@@ -64,22 +64,13 @@ package body vhpi_cosim_methods_pkg is
     report "Error: Should use foreign VHPI implementation" severity failure;
   end procedure;
 
-  -- TODO: Replace with VHPI implementation
   function vhpi_cosim_vvc_listen_enable (
     constant vvc_type        : string;
     constant vvc_channel     : string;
     constant vvc_instance_id : integer)
     return boolean is
   begin
-    -- Hardcoded to allow listen on UART VVC 1 and AXISTREAM VVC 1
-    -- (setup for receive in the testbench and used in the client example)
-    if (vvc_type = "UART_VVC" and vvc_channel = "RX" and vvc_instance_id = 1) or
-      (vvc_type = "AXISTREAM_VVC" and vvc_instance_id = 1)
-    then
-      return true;
-    else
-      return false;
-    end if;
+    report "Error: Should use foreign VHPI implementation" severity failure;
   end;
 
   function vhpi_cosim_transmit_queue_empty(

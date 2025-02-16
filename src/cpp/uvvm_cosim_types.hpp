@@ -15,11 +15,19 @@ struct VvcQueues {
   std::deque<std::pair<uint8_t, bool>> receive_queue;
 };
 
+// Todo:
+// It's pretty dumb to store data in the key
+// (VvcInstance is used as key in std::map of VVCs).
+// Should replace with a VvcInstanceKey class that has only
+// vvc_type, vvc_channel, and vvc_id.
+// And then put the queues from VvcQueues, vvc_cfg, listen_enable
+// (and any future fields) in VvcInstance class.
 struct VvcInstance {
   std::string vvc_type;
   std::string vvc_channel;
   int vvc_instance_id;
   std::map<std::string, int> vvc_cfg;
+  bool listen_enable = false;
 };
 
 // This class should implement the necessary comparator function (with

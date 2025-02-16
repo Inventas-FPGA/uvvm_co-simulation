@@ -130,9 +130,9 @@ begin
         alert(TB_ERROR, "AXISTREAM VVC " & to_string(GC_VVC_IDX) & ": Max wait cycles severity (timeout) should be set to NO_ALERT for cosim", C_SCOPE);
       end if;
 
-        if bfm_config.check_packet_length then
-          alert(TB_ERROR, "AXISTREAM VVC = " & to_string(GC_VVC_IDX) & ": Packet length (tlast) is not supported for cosim yet", C_SCOPE);
-        end if;
+      if bfm_config.check_packet_length then
+        alert(TB_ERROR, "AXISTREAM VVC = " & to_string(GC_VVC_IDX) & ": Packet length (tlast) is not supported for cosim yet", C_SCOPE);
+      end if;
     end procedure check_bfm_config;
 
   begin

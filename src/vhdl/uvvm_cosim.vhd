@@ -56,6 +56,9 @@ begin
       vhpi_cosim_start_sim; -- Blocks until user says sim should start
 
       log(ID_SEQUENCER, "Starting simulation", C_SCOPE);
+    else
+      -- Co-sim disabled
+      wait;
     end if;
 
     -- Check which VVCs were registered in this testbench
