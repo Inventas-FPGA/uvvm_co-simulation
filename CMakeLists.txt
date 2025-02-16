@@ -42,14 +42,10 @@ option(ENABLE_COVERAGE "Enable code coverage for unit tests" OFF)
 if(ENABLE_UNIT_TESTS)
   if(ENABLE_COVERAGE)
     include(coverage)
-    set(COVERAGE_EXCLUDE_DIRS
-      "${CMAKE_SOURCE_DIR}/test/cpp/*"
-      "${CMAKE_SOURCE_DIR}/thirdparty/*"
-      "*/catch2/*"
-      "/usr/*"
-      "/opt/*"
+    set(COVERAGE_INCLUDE_DIRS
+      "${CMAKE_SOURCE_DIR}/src/cpp/*"
     )
-    add_coverage_target(${COVERAGE_EXCLUDE_DIRS})
+    add_coverage_target(${COVERAGE_INCLUDE_DIRS})
   endif()
 
   enable_testing()

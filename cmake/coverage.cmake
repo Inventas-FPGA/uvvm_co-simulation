@@ -1,7 +1,7 @@
 # Code coverage module based on this guide (with some changes):
 # https://dev.to/askrodney/cmake-coverage-example-with-github-actions-and-codecovio-5bjp
 
-# Parameters: List of exclude paths (captured with $ARGN)
+# Parameters: List of include paths/patterns (captured with $ARGN)
 function(add_coverage_target)
 
   find_program(GCOV gcov)
@@ -21,10 +21,13 @@ function(add_coverage_target)
 
   if (LCOV AND GCOV AND GENHTML)
 
-    # Create a list of quoted exclude paths
-    set(excludes "")
+    # Create a list of --include "pattern" parameters to pass to LCOV
+    set(includes "")
     foreach(arg IN LISTS ARGN)
-	list(APPEND excludes "'${arg}'")
+      # LCOV accepts only one PATTERN per --include
+      # But --include can be repeated several times
+      list(APPEND includes "--include")
+      list(APPEND includes "'${arg}'")
     endforeach()
 
     set(covname cov.info)
@@ -33,8 +36,7 @@ function(add_coverage_target)
     add_custom_target(cov DEPENDS ${covname})
     add_custom_command(
       OUTPUT  ${covname}
-      COMMAND ${LCOV} -c -o ${covname} -d . -b . --gcov-tool ${GCOV}
-      COMMAND ${LCOV} -r ${covname} ${excludes} -o ${covname}
+      COMMAND ${LCOV} -c -o ${covname} -d . -b . --gcov-tool ${GCOV} ${includes}
       COMMAND ${LCOV} -l ${covname}
       COMMAND ${GENHTML} ${covname} -output coverage
       COMMAND ${LCOV} -l ${covname} 2>/dev/null | grep Total | sed 's/|//g' | sed 's/Total://g' | awk '{print $1}' | sed s/%//g > coverage/total
