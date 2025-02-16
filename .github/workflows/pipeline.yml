@@ -73,11 +73,10 @@ jobs:
           lcov_cobertura cov.info -d --output coverage.xml
 
       - name: 'Publish unit test results'
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always()
+        uses: 5monkeys/cobertura-action@v14
         with:
-          files: |
-            ./build/coverage.xml
+          path: ./build/coverage.xml
+          minimum_coverage: 75
 
 # Todo: codecov upload
 #      - name: 'Upload coverage reports to Codecov'
