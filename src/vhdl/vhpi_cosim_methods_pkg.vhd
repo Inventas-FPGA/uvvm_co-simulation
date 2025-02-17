@@ -11,13 +11,12 @@ package vhpi_cosim_methods_pkg is
     constant vvc_type        : in string;
     constant vvc_channel     : in string;
     constant vvc_instance_id : in integer;
-    constant vvc_cfg         : in string
+    constant bfm_cfg         : in string
     );
 
   -- TODO: Replace and add attribute for VHPI implementation
   function vhpi_cosim_vvc_listen_enable (
     constant vvc_type        : string;
-    constant vvc_channel     : string;
     constant vvc_instance_id : integer)
     return boolean;
 
@@ -40,8 +39,9 @@ package vhpi_cosim_methods_pkg is
 
   attribute foreign of vhpi_cosim_start_sim            : procedure is "VHPI uvvm_cosim_lib vhpi_cosim_start_sim";
   attribute foreign of vhpi_cosim_report_vvc_info      : procedure is "VHPI uvvm_cosim_lib vhpi_cosim_report_vvc_info";
-  attribute foreign of vhpi_cosim_transmit_queue_empty : function is "VHPI uvvm_cosim_lib vhpi_cosim_transmit_queue_empty";
-  attribute foreign of vhpi_cosim_transmit_queue_get   : function is "VHPI uvvm_cosim_lib vhpi_cosim_transmit_queue_get";
+  attribute foreign of vhpi_cosim_vvc_listen_enable    : function  is "VHPI uvvm_cosim_lib vhpi_cosim_listen_enable";
+  attribute foreign of vhpi_cosim_transmit_queue_empty : function  is "VHPI uvvm_cosim_lib vhpi_cosim_transmit_queue_empty";
+  attribute foreign of vhpi_cosim_transmit_queue_get   : function  is "VHPI uvvm_cosim_lib vhpi_cosim_transmit_queue_get";
   attribute foreign of vhpi_cosim_receive_queue_put    : procedure is "VHPI uvvm_cosim_lib vhpi_cosim_receive_queue_put";
 
 end package vhpi_cosim_methods_pkg;
@@ -58,7 +58,7 @@ package body vhpi_cosim_methods_pkg is
     constant vvc_type        : in string;
     constant vvc_channel     : in string;
     constant vvc_instance_id : in integer;
-    constant vvc_cfg         : in string
+    constant bfm_cfg         : in string
     ) is
   begin
     report "Error: Should use foreign VHPI implementation" severity failure;
@@ -66,7 +66,6 @@ package body vhpi_cosim_methods_pkg is
 
   function vhpi_cosim_vvc_listen_enable (
     constant vvc_type        : string;
-    constant vvc_channel     : string;
     constant vvc_instance_id : integer)
     return boolean is
   begin

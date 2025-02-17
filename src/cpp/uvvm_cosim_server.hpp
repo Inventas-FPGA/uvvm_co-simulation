@@ -16,10 +16,10 @@ private:
   jsonrpccxx::JsonRpc2Server jsonRpcServer;
   CppHttpLibServerConnector httpServer;
 
-  // Key type: VvcInstance
-  // Value type: VvcQueues
-  // Comparator: VvcCompare
-  shared_map<VvcInstance, VvcQueues, VvcCompare> vvcInstanceMap;
+  // VvcInstanceKey: Identifies VVC by type, channel, id
+  // VvcInstanceData: Transmit+receive queue for VVC, config, etc.
+  // VvcCompare: Comparator class for VvcInstanceKey
+  shared_map<VvcInstanceKey, VvcInstanceData, VvcCompare> vvcInstanceMap;
 
   std::atomic<bool> startSim=false;
 
@@ -29,7 +29,7 @@ private:
 
   JsonResponse StartSim();
   JsonResponse GetVvcList();
-  JsonResponse SetVvcListen(std::string vvc_type, int vvc_id, bool listen_enable);
+  JsonResponse SetVvcCosimRecvState(std::string vvc_type, int vvc_id, bool enable);
 
   JsonResponse TransmitBytes(std::string vvc_type, int vvc_id, std::vector<uint8_t> data);
   JsonResponse TransmitPacket(std::string vvc_type, int vvc_id, std::vector<uint8_t> data);
@@ -65,9 +65,9 @@ public:
     jsonRpcServer.Add("GetVvcList",
                       GetHandle(&UvvmCosimServer::GetVvcList, *this), {});
 
-    jsonRpcServer.Add("SetVvcListen",
-                      GetHandle(&UvvmCosimServer::SetVvcListen, *this),
-		      {"vvc_type", "vvc_id", "listen_enable"});
+    jsonRpcServer.Add("SetVvcCosimRecvState",
+                      GetHandle(&UvvmCosimServer::SetVvcCosimRecvState, *this),
+		      {"vvc_type", "vvc_id", "enable"});
 
     jsonRpcServer.Add("StartSim",
 		      GetHandle(&UvvmCosimServer::StartSim, *this), {});
@@ -94,11 +94,11 @@ public:
 
   void WaitForStartSim();
 
-  bool VvcListenEnabled(std::string vvc_type,
-			int vvc_instance_id);
+  bool VvcCosimRecvEnabled(std::string vvc_type,
+			   int vvc_instance_id);
 
   void AddVvc(std::string vvc_type, std::string vvc_channel,
-	      int vvc_instance_id, std::string vvc_cfg_str);
+	      int vvc_instance_id, std::string bfm_cfg_str);
 
   bool TransmitQueueEmpty(std::string vvc_type, int vvc_instance_id);
 

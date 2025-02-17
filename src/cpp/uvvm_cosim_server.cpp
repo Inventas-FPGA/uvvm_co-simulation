@@ -29,9 +29,9 @@ static std::vector<std::string> split_str(std::string str, std::string delim)
 // Only integers are supported for value (use 0/1 for bool).
 // Example string:
 // "packet_based=1,enabled=0,timeout=1000"
-static std::map<std::string, int> parse_vvc_cfg_str(const std::string& cfg_str)
+static std::map<std::string, int> parse_bfm_cfg_str(const std::string& cfg_str)
 {
-  std::map<std::string, int> vvc_cfg;
+  std::map<std::string, int> bfm_cfg;
 
   try {
     auto cfg_items = split_str(cfg_str, ",");
@@ -50,7 +50,7 @@ static std::map<std::string, int> parse_vvc_cfg_str(const std::string& cfg_str)
       std::string cfg_key = cfg_key_val[0];
       int cfg_val = std::stoi(cfg_key_val[1]);
 
-      vvc_cfg.emplace(cfg_key, cfg_val);
+      bfm_cfg.emplace(cfg_key, cfg_val);
     }
 
   } catch (std::exception &e) {
@@ -58,7 +58,7 @@ static std::map<std::string, int> parse_vvc_cfg_str(const std::string& cfg_str)
     std::cerr << "Reason=" << e.what() << std::endl;
   }
 
-  return vvc_cfg;
+  return bfm_cfg;
 }
 
 void
@@ -72,18 +72,18 @@ UvvmCosimServer::WaitForStartSim()
 }
 
 bool
-UvvmCosimServer::VvcListenEnabled(std::string vvc_type,
-				  int vvc_instance_id)
+UvvmCosimServer::VvcCosimRecvEnabled(std::string vvc_type,
+				     int vvc_instance_id)
 {
-  VvcInstance vvc = {
+  VvcInstanceKey vvc = {
     .vvc_type = vvc_type,
-    .vvc_channel = (vvc_type == "UART_VVC" ? "TX" : "NA"),
+    .vvc_channel = (vvc_type == "UART_VVC" ? "RX" : "NA"),
     .vvc_instance_id = vvc_instance_id
   };
 
   bool listen = vvcInstanceMap([&](auto &vvc_map) {
     if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
-      return it->first.listen_enable;
+      return it->second.cfg.cosim_recv_enable;
     } else {
       std::cerr << "VVC with";
       std::cerr << " type=" << vvc.vvc_type;
@@ -100,20 +100,19 @@ UvvmCosimServer::VvcListenEnabled(std::string vvc_type,
 
 void
 UvvmCosimServer::AddVvc(std::string vvc_type, std::string vvc_channel,
-			int vvc_instance_id, std::string vvc_cfg_str)
+			int vvc_instance_id, std::string bfm_cfg_str)
 {
-  auto vvc_cfg = parse_vvc_cfg_str(vvc_cfg_str);
+  auto bfm_cfg = parse_bfm_cfg_str(bfm_cfg_str);
 
-  VvcInstance vvc = {
+  VvcInstanceKey vvc = {
     .vvc_type = vvc_type,
     .vvc_channel = vvc_channel,
-    .vvc_instance_id = vvc_instance_id,
-    .vvc_cfg = vvc_cfg
+    .vvc_instance_id = vvc_instance_id
   };
 
   vvcInstanceMap([&](auto &vvc_map) {
     if (vvc_map.find(vvc) == vvc_map.end()) {
-      vvc_map.emplace(vvc, VvcQueues());
+      vvc_map.emplace(vvc, VvcInstanceData{.cfg{.bfm_cfg = bfm_cfg}});
     } else {
       std::cerr << "VVC with type=" << vvc.vvc_type;
       std::cerr << " channel=" << vvc.vvc_channel;
@@ -127,15 +126,15 @@ bool
 UvvmCosimServer::TransmitQueueEmpty(std::string vvc_type,
 				    int vvc_instance_id)
 {
-  VvcInstance vvc = {
+  VvcInstanceKey vvc = {
     .vvc_type = vvc_type,
     .vvc_channel = (vvc_type == "UART_VVC" ? "TX" : "NA"),
     .vvc_instance_id = vvc_instance_id
   };
 
   bool empty = vvcInstanceMap([&](auto &vvc_map) {
-    if (vvc_map.find(vvc) != vvc_map.end()) {
-      return vvc_map[vvc].transmit_queue.empty();
+    if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
+      return it->second.transmit_queue.empty();
     } else {
       std::cerr << "VVC with";
       std::cerr << " type=" << vvc.vvc_type;
@@ -154,7 +153,7 @@ std::optional<std::pair<uint8_t, bool>>
 UvvmCosimServer::TransmitQueueGet(std::string vvc_type,
 				  int vvc_instance_id)
 {
-  VvcInstance vvc = {
+  VvcInstanceKey vvc = {
     .vvc_type = vvc_type,
     .vvc_channel = (vvc_type == "UART_VVC" ? "TX" : "NA"),
     .vvc_instance_id = vvc_instance_id
@@ -163,11 +162,11 @@ UvvmCosimServer::TransmitQueueGet(std::string vvc_type,
   std::pair<uint8_t, bool> byte = {};
 
   vvcInstanceMap([&](auto &vvc_map) {
-    if (vvc_map.find(vvc) != vvc_map.end()) {
+    if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
 
-      if (!vvc_map[vvc].transmit_queue.empty()) {
-	byte = vvc_map[vvc].transmit_queue.front();
-	vvc_map[vvc].transmit_queue.pop_front();
+      if (!it->second.transmit_queue.empty()) {
+	byte = it->second.transmit_queue.front();
+	it->second.transmit_queue.pop_front();
       } else {
         std::cerr << "TransmitBytesQueueGet called on empty queue for VVC with";
         std::cerr << " type=" << vvc.vvc_type;
@@ -195,15 +194,15 @@ void UvvmCosimServer::ReceiveQueuePut(std::string vvc_type,
 				      int vvc_instance_id,
 				      uint8_t byte, bool end_of_packet)
 {
-  VvcInstance vvc = {
+  VvcInstanceKey vvc = {
     .vvc_type = vvc_type,
     .vvc_channel = (vvc_type == "UART_VVC" ? "RX" : "NA"),
     .vvc_instance_id = vvc_instance_id
   };
 
   vvcInstanceMap([&](auto &vvc_map) {
-    if (vvc_map.find(vvc) != vvc_map.end()) {
-      vvc_map[vvc].receive_queue.push_back(std::make_pair(byte, end_of_packet));
+    if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
+      it->second.receive_queue.push_back(std::make_pair(byte, end_of_packet));
     } else {
       std::cerr << "VVC with";
       std::cerr << " type=" << vvc.vvc_type;
@@ -233,7 +232,7 @@ UvvmCosimServer::GetVvcList()
 
   vvcInstanceMap([&](auto &vvc_map) {
     for (auto vvc : vvc_map) {
-      vec.push_back(vvc.first);
+      vec.push_back(VvcInstance(vvc.first, vvc.second.cfg));
     }
   });
 
@@ -246,19 +245,19 @@ UvvmCosimServer::GetVvcList()
 }
 
 JsonResponse
-UvvmCosimServer::SetVvcListen(std::string vvc_type, int vvc_id, bool listen_enable)
+UvvmCosimServer::SetVvcCosimRecvState(std::string vvc_type, int vvc_id, bool enable)
 {
   JsonResponse response;
 
-  VvcInstance vvc = {
+  VvcInstanceKey vvc = {
     .vvc_type = vvc_type,
-    .vvc_channel = (vvc_type == "UART_VVC" ? "TX" : "NA"),
+    .vvc_channel = (vvc_type == "UART_VVC" ? "RX" : "NA"),
     .vvc_instance_id = vvc_id
   };
 
   vvcInstanceMap([&](auto &vvc_map) {
     if (decltype(vvc_map.begin()) it = vvc_map.find(vvc); it != vvc_map.end()) {
-      it->first.listen_enable = listen_enable;
+      it->second.cfg.cosim_recv_enable = enable;
       response.success = true;
       response.result = json{};
 
@@ -282,15 +281,15 @@ UvvmCosimServer::TransmitBytes(std::string vvc_type, int vvc_id, std::vector<uin
 {
   JsonResponse response;
 
-  VvcInstance vvc = {
+  VvcInstanceKey vvc = {
     .vvc_type = vvc_type,
     .vvc_channel = (vvc_type == "UART_VVC" ? "TX" : "NA"),
     .vvc_instance_id = vvc_id
   };
 
   vvcInstanceMap([&](auto &vvc_map) {
-    if (vvc_map.find(vvc) != vvc_map.end()) {
-      auto& q = vvc_map[vvc].transmit_queue;
+    if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
+      auto& q = it->second.transmit_queue;
       
       // Transform uint8_t elements from data to the
       // std::pair<uint8_t,bool> elements that go in transmit_queue
@@ -336,16 +335,16 @@ UvvmCosimServer::ReceiveBytes(std::string vvc_type, int vvc_id, int length, bool
 {
   JsonResponse response;
 
-  VvcInstance vvc = {
+  VvcInstanceKey vvc = {
     .vvc_type = vvc_type,
     .vvc_channel = (vvc_type == "UART_VVC" ? "RX" : "NA"),
     .vvc_instance_id = vvc_id
   };
 
   vvcInstanceMap([&](auto &vvc_map) {
-    if (vvc_map.find(vvc) != vvc_map.end()) {
+    if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
       std::vector<uint8_t> data;
-      auto& q = vvc_map[vvc].receive_queue;
+      auto& q = it->second.receive_queue;
 
       if (q.empty() || (all_or_nothing && q.size() < length)) {
         std::cout << "Server: " << "ReceiveBytes called with length=" << length;

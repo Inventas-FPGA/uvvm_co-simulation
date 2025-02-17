@@ -91,7 +91,7 @@ begin
 
     function listen_enable (void : t_void) return boolean is
     begin
-      if vhpi_cosim_vvc_listen_enable("UART_VVC", "RX", GC_VVC_IDX) then
+      if vhpi_cosim_vvc_listen_enable("UART_VVC", GC_VVC_IDX) then
         return true;
       else
         return false;

@@ -95,10 +95,9 @@ void vhpi_cosim_start_sim(const vhpiCbDataT* p_cb_data)
 void vhpi_cosim_listen_enable(const vhpiCbDataT* p_cb_data)
 {
   std::string vvc_type = get_vhpi_cb_string_param_by_index(p_cb_data, 0);
-  std::string vvc_channel = get_vhpi_cb_string_param_by_index(p_cb_data, 1);
-  int vvc_instance_id = get_vhpi_cb_int_param_by_index(p_cb_data, 2);
+  int vvc_instance_id = get_vhpi_cb_int_param_by_index(p_cb_data, 1);
 
-  bool listen = cosim_server->VvcListenEnabled(vvc_type, vvc_channel, vvc_instance_id);
+  bool listen = cosim_server->VvcCosimRecvEnabled(vvc_type, vvc_instance_id);
 
   set_vhpi_int_retval(p_cb_data, listen ? 1 : 0);
 }
@@ -108,16 +107,16 @@ void vhpi_cosim_report_vvc_info(const vhpiCbDataT* p_cb_data)
   std::string vvc_type = get_vhpi_cb_string_param_by_index(p_cb_data, 0);
   std::string vvc_channel = get_vhpi_cb_string_param_by_index(p_cb_data, 1);
   int vvc_instance_id = get_vhpi_cb_int_param_by_index(p_cb_data, 2);
-  std::string vvc_cfg_str = get_vhpi_cb_string_param_by_index(p_cb_data, 3);
+  std::string bfm_cfg_str = get_vhpi_cb_string_param_by_index(p_cb_data, 3);
 
   vhpi_printf("vhpi_cosim_report_vvc_info: Got:");
   vhpi_printf("Type=%s, Channel=%s, ID=%d, cfg=%s",
 	      vvc_type.c_str(),
 	      vvc_channel.c_str(),
 	      vvc_instance_id,
-	      vvc_cfg_str.c_str());
+	      bfm_cfg_str.c_str());
 
-  cosim_server->AddVvc(vvc_type, vvc_channel, vvc_instance_id, vvc_cfg_str);
+  cosim_server->AddVvc(vvc_type, vvc_channel, vvc_instance_id, bfm_cfg_str);
 }
 
 long convert_time_to_ns(const vhpiTimeT *time)

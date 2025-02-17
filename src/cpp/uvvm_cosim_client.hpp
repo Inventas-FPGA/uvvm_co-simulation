@@ -24,6 +24,10 @@ public:
     return CallMethod<JsonResponse>(requestId++, "GetVvcList", {});
   }
 
+  JsonResponse SetVvcCosimRecvState(std::string vvc_type, int vvc_id, bool enable) {
+    return CallMethod<JsonResponse>(requestId++, "SetVvcCosimRecvState", {vvc_type, vvc_id, enable});
+  }
+
   JsonResponse TransmitBytes(std::string vvc_type, int vvc_id, std::vector<uint8_t> data)
   {
     return CallMethod<JsonResponse>(requestId++, "TransmitBytes", {vvc_type, vvc_id, data});
