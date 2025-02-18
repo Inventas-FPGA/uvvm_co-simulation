@@ -97,7 +97,7 @@ void vhpi_cosim_listen_enable(const vhpiCbDataT* p_cb_data)
   std::string vvc_type = get_vhpi_cb_string_param_by_index(p_cb_data, 0);
   int vvc_instance_id = get_vhpi_cb_int_param_by_index(p_cb_data, 1);
 
-  bool listen = cosim_server->VvcCosimRecvEnabled(vvc_type, vvc_instance_id);
+  bool listen = cosim_server->VvcListenEnabled(vvc_type, vvc_instance_id);
 
   set_vhpi_int_retval(p_cb_data, listen ? 1 : 0);
 }

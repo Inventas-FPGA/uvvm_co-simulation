@@ -42,8 +42,8 @@ void print_vvc(const VvcInstance& vvc)
   for (auto &cfg : vvc.bfm_cfg) {
     std::cout << cfg.first << "=" << cfg.second << " ";
   }
-  std::cout << "Cosim recv enabled: "
-            << (vvc.cosim_recv_enable ? "true" : "false") << std::endl;
+  std::cout << "listen_enable: "
+            << (vvc.listen_enable ? "true" : "false") << std::endl;
 }
 
 void print_vvc_list(const JsonResponse& vvc_list_json)
@@ -84,8 +84,8 @@ int main(int argc, char** argv)
   print_vvc_list(vvc_list);
 
   std::cout << "Enable cosim listening on AXI-S VVC 1 and UART VVC 1" << std::endl;
-  client.SetVvcCosimRecvState("UART_VVC", 1, true);
-  client.SetVvcCosimRecvState("AXISTREAM_VVC", 1, true);
+  client.SetVvcListenEnable("UART_VVC", 1, true);
+  client.SetVvcListenEnable("AXISTREAM_VVC", 1, true);
   std::this_thread::sleep_for(0.5s);
 
   std::cout << "Get VVC list again...." << std::endl << std::endl;

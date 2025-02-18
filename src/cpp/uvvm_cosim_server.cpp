@@ -72,7 +72,7 @@ UvvmCosimServer::WaitForStartSim()
 }
 
 bool
-UvvmCosimServer::VvcCosimRecvEnabled(std::string vvc_type,
+UvvmCosimServer::VvcListenEnabled(std::string vvc_type,
 				     int vvc_instance_id)
 {
   VvcInstanceKey vvc = {
@@ -83,7 +83,7 @@ UvvmCosimServer::VvcCosimRecvEnabled(std::string vvc_type,
 
   bool listen = vvcInstanceMap([&](auto &vvc_map) {
     if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
-      return it->second.cfg.cosim_recv_enable;
+      return it->second.cfg.listen_enable;
     } else {
       std::cerr << "VVC with";
       std::cerr << " type=" << vvc.vvc_type;
@@ -245,7 +245,7 @@ UvvmCosimServer::GetVvcList()
 }
 
 JsonResponse
-UvvmCosimServer::SetVvcCosimRecvState(std::string vvc_type, int vvc_id, bool enable)
+UvvmCosimServer::SetVvcListenEnable(std::string vvc_type, int vvc_id, bool enable)
 {
   JsonResponse response;
 
@@ -257,7 +257,7 @@ UvvmCosimServer::SetVvcCosimRecvState(std::string vvc_type, int vvc_id, bool ena
 
   vvcInstanceMap([&](auto &vvc_map) {
     if (decltype(vvc_map.begin()) it = vvc_map.find(vvc); it != vvc_map.end()) {
-      it->second.cfg.cosim_recv_enable = enable;
+      it->second.cfg.listen_enable = enable;
       response.success = true;
       response.result = json{};
 

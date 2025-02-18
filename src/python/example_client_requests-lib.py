@@ -31,7 +31,7 @@ def main():
     print("")
     print("Enable listening on UART_VVC 1 and AXISTREAM_VVC 1")
     payload = {
-        "method": "SetVvcCosimRecvState",
+        "method": "SetVvcListenEnable",
         "params": {"vvc_type": "UART_VVC",
                    "vvc_id": 1,
                    "enable": True},
@@ -41,7 +41,7 @@ def main():
     requests.post(url, json=payload).json()
 
     payload = {
-        "method": "SetVvcCosimRecvState",
+        "method": "SetVvcListenEnable",
         "params": {"vvc_type": "UART_VVC",
                    "vvc_id": 1,
                    "enable": True},

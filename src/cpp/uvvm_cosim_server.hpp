@@ -29,7 +29,7 @@ private:
 
   JsonResponse StartSim();
   JsonResponse GetVvcList();
-  JsonResponse SetVvcCosimRecvState(std::string vvc_type, int vvc_id, bool enable);
+  JsonResponse SetVvcListenEnable(std::string vvc_type, int vvc_id, bool enable);
 
   JsonResponse TransmitBytes(std::string vvc_type, int vvc_id, std::vector<uint8_t> data);
   JsonResponse TransmitPacket(std::string vvc_type, int vvc_id, std::vector<uint8_t> data);
@@ -65,8 +65,8 @@ public:
     jsonRpcServer.Add("GetVvcList",
                       GetHandle(&UvvmCosimServer::GetVvcList, *this), {});
 
-    jsonRpcServer.Add("SetVvcCosimRecvState",
-                      GetHandle(&UvvmCosimServer::SetVvcCosimRecvState, *this),
+    jsonRpcServer.Add("SetVvcListenEnable",
+                      GetHandle(&UvvmCosimServer::SetVvcListenEnable, *this),
 		      {"vvc_type", "vvc_id", "enable"});
 
     jsonRpcServer.Add("StartSim",
@@ -94,7 +94,7 @@ public:
 
   void WaitForStartSim();
 
-  bool VvcCosimRecvEnabled(std::string vvc_type,
+  bool VvcListenEnabled(std::string vvc_type,
 			   int vvc_instance_id);
 
   void AddVvc(std::string vvc_type, std::string vvc_channel,

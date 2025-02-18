@@ -18,7 +18,7 @@ struct VvcInstanceKey {
 
 struct VvcConfig {
   std::map<std::string, int> bfm_cfg;
-  bool cosim_recv_enable = false;
+  bool listen_enable = false;
 };
 
 // Used as value in std::map of all VVCs in server
@@ -59,7 +59,7 @@ inline void to_json(json &j, const VvcInstance &v) {
            {"vvc_channel", v.vvc_channel},
            {"vvc_instance_id", v.vvc_instance_id},
            {"bfm_cfg", v.bfm_cfg},
-           {"cosim_recv_enable", v.cosim_recv_enable}};
+           {"listen_enable", v.listen_enable}};
 }
 
 inline void from_json(const json &j, VvcInstance &v) {
@@ -67,7 +67,7 @@ inline void from_json(const json &j, VvcInstance &v) {
   j.at("vvc_channel").get_to(v.vvc_channel);
   j.at("vvc_instance_id").get_to(v.vvc_instance_id);
   j.at("bfm_cfg").get_to(v.bfm_cfg);
-  j.at("cosim_recv_enable").get_to(v.cosim_recv_enable);
+  j.at("listen_enable").get_to(v.listen_enable);
 }
 
 struct JsonResponse {
