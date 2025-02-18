@@ -43,7 +43,7 @@ begin
   p_uvvm_cosim_init : process
     variable vvc_channel     : t_channel;
     variable vvc_instance_id : integer;
-    variable vvc_cfg         : line :=  null;
+    variable bfm_cfg         : line :=  null;
   begin
 
     await_uvvm_initialization(VOID);
@@ -56,6 +56,9 @@ begin
       vhpi_cosim_start_sim; -- Blocks until user says sim should start
 
       log(ID_SEQUENCER, "Starting simulation", C_SCOPE);
+    else
+      -- Co-sim disabled
+      wait;
     end if;
 
     -- Check which VVCs were registered in this testbench
@@ -79,17 +82,17 @@ begin
         end if;
 
         -- Comma-separated string with VVC config
-        vvc_cfg := bfm_cfg_to_string(shared_uart_vvc_config(vvc_channel, vvc_instance_id).bfm_config);
+        bfm_cfg := bfm_cfg_to_string(shared_uart_vvc_config(vvc_channel, vvc_instance_id).bfm_config);
 
       elsif strcmp("AXISTREAM_VVC", shared_vvc_activity_register.priv_get_vvc_name(idx)) then
         -- Mark instance id as in use
         axis_vvc_indexes_in_use(vvc_instance_id) <= '1';
 
         -- Comma-separated string with VVC config
-        vvc_cfg := bfm_cfg_to_string(shared_axistream_vvc_config(vvc_instance_id).bfm_config);
+        bfm_cfg := bfm_cfg_to_string(shared_axistream_vvc_config(vvc_instance_id).bfm_config);
       else
         -- Unsupported VVC
-        vvc_cfg := bfm_cfg_to_string(VOID);
+        bfm_cfg := bfm_cfg_to_string(VOID);
       end if;
 
       -- Todo:
@@ -100,10 +103,10 @@ begin
         shared_vvc_activity_register.priv_get_vvc_name(idx),
         to_string(vvc_channel),
         vvc_instance_id,
-        vvc_cfg.all
+        bfm_cfg.all
         );
 
-      deallocate(vvc_cfg);
+      deallocate(bfm_cfg);
 
     end loop;
 

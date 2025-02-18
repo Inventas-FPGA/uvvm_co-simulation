@@ -16,6 +16,20 @@ def main():
     response = rpc_client.call(method="GetVvcList", args=None, kwargs=None)
     print(f"VVC list response: {response}")
 
+    response = rpc_client.call(method="SetVvcListenEnable", args=None,
+                               kwargs={"vvc_type": "UART_VVC",
+                                       "vvc_id": 1,
+                                       "enable": True},
+                               one_way=False)
+
+    response = rpc_client.call(method="SetVvcListenEnable", args=None,
+                               kwargs={"vvc_type": "AXISTREAM_VVC",
+                                       "vvc_id": 1,
+                                       "enable": True},
+                               one_way=False)
+
+    time.sleep(0.5)
+
     response = rpc_client.call(method="TransmitBytes", args=None,
                                kwargs={"vvc_type": "UART_VVC",
                                        "vvc_id": 0,

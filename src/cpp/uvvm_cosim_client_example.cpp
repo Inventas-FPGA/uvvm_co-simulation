@@ -8,7 +8,6 @@
 #include "uvvm_cosim_client.hpp"
 #include "uvvm_cosim_types.hpp"
 
-
 void print_received_data(const std::vector<uint8_t>& data)
 {
   std::cout << "data = [";
@@ -33,6 +32,35 @@ void print_receive_result(const JsonResponse& response, const std::string& vvc_n
   }
 }
 
+void print_vvc(const VvcInstance& vvc)
+{
+  std::cout << "Type: " << vvc.vvc_type << ", ";
+  std::cout << "Channel: " << vvc.vvc_channel << ", ";
+  std::cout << "Instance ID: " << vvc.vvc_instance_id << std::endl;
+
+  std::cout << "Config: ";
+  for (auto &cfg : vvc.bfm_cfg) {
+    std::cout << cfg.first << "=" << cfg.second << " ";
+  }
+  std::cout << "listen_enable: "
+            << (vvc.listen_enable ? "true" : "false") << std::endl;
+}
+
+void print_vvc_list(const JsonResponse& vvc_list_json)
+{
+  if (vvc_list_json.success && vvc_list_json.result.is_array()) {
+    std::cout << "VVC List:" << std::endl;
+    std::cout << "-----------------------------------------------------" << std::endl;
+    for (auto &vvc_json : vvc_list_json.result) {
+      VvcInstance vvc = vvc_json;
+      print_vvc(vvc);
+      std::cout << std::endl << std::endl;
+    }
+  } else {
+    std::cout << "Failed to get VVC list: " << vvc_list_json.result["error"] << std::endl;
+  }
+}
+
 // Test connecting, transmitting and receiving some bytes
 int main(int argc, char** argv)
 {
@@ -51,29 +79,18 @@ int main(int argc, char** argv)
 
   std::this_thread::sleep_for(0.5s);
 
-  std::cout << "Get VVC list...." << std::endl;
-
+  std::cout << "Get VVC list...." << std::endl << std::endl;
   auto vvc_list = client.GetVvcList();
+  print_vvc_list(vvc_list);
 
-  std::cout << "VVC list response: " << std::endl;
-  std::cout << vvc_list.result.dump(4) << std::endl << std::endl;
+  std::cout << "Enable cosim listening on AXI-S VVC 1 and UART VVC 1" << std::endl;
+  client.SetVvcListenEnable("UART_VVC", 1, true);
+  client.SetVvcListenEnable("AXISTREAM_VVC", 1, true);
+  std::this_thread::sleep_for(0.5s);
 
-  if (vvc_list.success && vvc_list.result.is_array()) {
-    for (auto &vvc_json : vvc_list.result) {
-      VvcInstance vvc = vvc_json;
-      std::cout << "Type: " << vvc.vvc_type << ", ";
-      std::cout << "Channel: " << vvc.vvc_channel << ", ";
-      std::cout << "Instance ID: " << vvc.vvc_instance_id << std::endl;
-
-      std::cout << "Config: ";
-      for (auto &cfg : vvc.vvc_cfg) {
-        std::cout << cfg.first << "=" << cfg.second << " ";
-      }
-      std::cout << std::endl << std::endl;
-    }
-  } else {
-    std::cout << "Failed to get VVC list: " << vvc_list.result["error"] << std::endl;
-  }
+  std::cout << "Get VVC list again...." << std::endl << std::endl;
+  vvc_list = client.GetVvcList();
+  print_vvc_list(vvc_list);
 
   std::this_thread::sleep_for(0.5s);
 
