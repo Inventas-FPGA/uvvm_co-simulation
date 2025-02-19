@@ -36,9 +36,11 @@ add_executable(uvvm_cosim_example_client
                src/cpp/uvvm_cosim_client_example.cpp)
 target_include_directories(uvvm_cosim_example_client PRIVATE thirdparty/json-rpc-cxx/include thirdparty/json-rpc-cxx/vendor thirdparty/json-rpc-cxx/examples)
 
+# Options to enable unit tests and coverage
 option(ENABLE_UNIT_TESTS "Run Catch2 Unit tests" ON)
 option(ENABLE_COVERAGE "Enable code coverage for unit tests" OFF)
 
+# Add unit test target and coverage targets (when enabled)
 if(ENABLE_UNIT_TESTS)
   if(ENABLE_COVERAGE)
     include(coverage)
@@ -51,3 +53,12 @@ if(ENABLE_UNIT_TESTS)
   enable_testing()
   add_subdirectory(test/cpp)
 endif()
+
+# Note: Run "make clean-gcov" to remove gcov .gcno and .gcda files.
+# Haven't found a way to setup ADDITIONAL_CLEAN_FILES to cleanup all
+# .gcno and .gcda files by running make clean.
+add_custom_target(clean-gcov
+    COMMAND find ${CMAKE_BINARY_DIR} -name "*.gcda" -delete
+    COMMAND find ${CMAKE_BINARY_DIR} -name "*.gcno" -delete
+    COMMENT "Cleaning gcov build and coverage files..."
+)
