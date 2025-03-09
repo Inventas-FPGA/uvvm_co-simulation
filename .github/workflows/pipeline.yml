@@ -1,0 +1,87 @@
+name: CI pipeline
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Extra permissions required by publish test result step
+    permissions:
+      checks: write
+      pull-requests: write
+
+
+    # TODO:
+    # Not the most efficient pipeline at the moment..
+    # Use a docker container for NVC in the future
+
+    steps:
+      - name: 'Install LCOV in runner'
+        run: sudo apt-get update && sudo apt-get install lcov
+
+      - name: 'Install NVC dependencies in runner'
+        run: sudo apt-get install build-essential automake autoconf flex check llvm-dev pkg-config zlib1g-dev libdw-dev libffi-dev libzstd-dev
+
+      - name: 'Clone NVC'
+        uses: GuillaumeFalourd/clone-github-repo-action@v2.3
+        with:
+          depth: 1
+          branch: 'master'
+          owner: 'nickg'
+          repository: 'nvc'
+
+      - name: 'Build and install NVC in runner'
+        run: |
+          cd nvc
+          ./autogen.sh
+          mkdir build && cd build
+          ../configure --prefix=/opt
+          make
+          sudo make install
+
+      - name: 'Checkout'
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: 'Configure'
+        run: |
+          cmake -H. -Bbuild -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DENABLE_UNIT_TESTS=On -DENABLE_COVERAGE=On
+
+      - name: 'Build unit tests'
+        run: |
+          cmake --build build --config Debug --target test_uvvm_cosim_types
+
+      - name: 'Run unit tests'
+        working-directory: ./build/test/cpp
+        run: |
+          ./test_uvvm_cosim_types
+
+      - name: generate coverage
+        working-directory: ./build
+        run: |
+          make cov
+
+      - name: 'Install pip packages'
+        run: |
+          pip install -r requirements.txt
+
+      - name: 'Generate JSON coverage report'
+        working-directory: ./build
+        run: |
+          lcov_cobertura cov.info -d --output coverage.xml
+
+      - name: 'Publish unit test results'
+        uses: 5monkeys/cobertura-action@v14
+        with:
+          path: ./build/coverage.xml
+          show_line: true
+          show_branch: true
+          minimum_coverage: 75
+
+# Todo: codecov upload
+#      - name: 'Upload coverage reports to Codecov'
+#        uses: codecov/codecov-action@eaaf4bedf32dbdc6b720b63067d99c4d77d6047d # v3
+#        env:
+#          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

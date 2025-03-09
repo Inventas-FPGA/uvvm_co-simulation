@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_SOURCE_DIR}/cmake")
+
 project(uvvm_cosim VERSION 0.0.1 DESCRIPTION "UVVM Co-simulation JSON-RPC server for use with VHDL VHPI")
 
 set(CMAKE_CXX_STANDARD 20)
@@ -33,3 +35,30 @@ add_custom_target(hdl_run
 add_executable(uvvm_cosim_example_client
                src/cpp/uvvm_cosim_client_example.cpp)
 target_include_directories(uvvm_cosim_example_client PRIVATE thirdparty/json-rpc-cxx/include thirdparty/json-rpc-cxx/vendor thirdparty/json-rpc-cxx/examples)
+
+# Options to enable unit tests and coverage
+option(ENABLE_UNIT_TESTS "Run Catch2 Unit tests" ON)
+option(ENABLE_COVERAGE "Enable code coverage for unit tests" OFF)
+
+# Add unit test target and coverage targets (when enabled)
+if(ENABLE_UNIT_TESTS)
+  if(ENABLE_COVERAGE)
+    include(coverage)
+    set(COVERAGE_INCLUDE_DIRS
+      "${CMAKE_SOURCE_DIR}/src/cpp/*"
+    )
+    add_coverage_target(${COVERAGE_INCLUDE_DIRS})
+  endif()
+
+  enable_testing()
+  add_subdirectory(test/cpp)
+endif()
+
+# Note: Run "make clean-gcov" to remove gcov .gcno and .gcda files.
+# Haven't found a way to setup ADDITIONAL_CLEAN_FILES to cleanup all
+# .gcno and .gcda files by running make clean.
+add_custom_target(clean-gcov
+    COMMAND find ${CMAKE_BINARY_DIR} -name "*.gcda" -delete
+    COMMAND find ${CMAKE_BINARY_DIR} -name "*.gcno" -delete
+    COMMENT "Cleaning gcov build and coverage files..."
+)
