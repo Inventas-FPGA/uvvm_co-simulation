@@ -104,6 +104,24 @@ While the simulation is running and the server is listening, you can test the ex
 
 There are also two example clients for Python under `src/python`. One using the `requests` library and another using `tinyrpc-lib`.
 
+### Unit tests
+
+To build unit tests set the `ENABLE_UNIT_TESTS` switch when running cmake and optionally `ENABLE_COVERAGE` to generate coverage info.
+
+```
+mkdir build
+cd build
+cmake .. -DENABLE_UNIT_TESTS=On -DENABLE_COVERAGE=On
+make
+```
+
+At the moment there is only one unit that can be ran from the build folder like this:
+```
+test/cpp/test_uvvm_cosim_types
+```
+
+To generate coverage results, run `make cov` (also generates html report under coverage/index.html).
+
 
 # JSON-RPC protocol
 
