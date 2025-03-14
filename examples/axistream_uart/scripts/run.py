@@ -38,6 +38,9 @@ def init(hr):
     hr.add_files(repo_path / "thirdparty" / "uvvm" / "bitvis_vip_clock_generator" / "src" / "*.vhd",          "bitvis_vip_clock_generator")
     hr.add_files(repo_path / "thirdparty" / "uvvm" / "uvvm_vvc_framework" / "src_target_dependent" / "*.vhd", "bitvis_vip_clock_generator")
 
+    # UVVM cosim
+    hr.add_files(repo_path / "src" / "vhdl" / "*.vhd", "work")
+
     # Add RTL code for AXI-Stream UART
     hr.add_files(uart_path / "src" / "rtl" / "*.vhd", "work")
 
@@ -48,7 +51,22 @@ def init(hr):
 def main():
     hr = HDLRegression()
     init(hr)
-    return hr.start()
+
+    if hr.settings.get_simulator_name() == "NVC":
+        print("Starting NVC sim")
+
+        # Override heap space parameters to NVC
+        # These are by default set to -H64m and -M64m in HDLregression,
+        # which is too small.
+        global_opts = [opt for opt in hr.settings.get_global_options() if "-H" not in opt and "-M" not in opt]
+        global_opts.append("-H1g")
+        global_opts.append("-M1g")
+        hr.settings.set_global_options(global_opts)
+
+        return hr.start(sim_options=[f"--load={repo_path / '..' / 'uvvm_co-simulation' / 'build' / 'libuvvm_cosim_vhpi.so'}"])
+    else:
+        # TODO: Add parameters to load cosim lib for other simulators
+        return hr.start()
 
 if __name__ == '__main__':
     sys.exit(main())

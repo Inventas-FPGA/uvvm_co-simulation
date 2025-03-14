@@ -27,7 +27,8 @@ entity axistream_uart_uvvm_th is
   generic (
     GC_AXIS_VVC_TRANSMIT_IDX : natural;
     GC_AXIS_VVC_RECEIVE_IDX  : natural;
-    GC_UART_VVC_IDX          : natural);
+    GC_UART_VVC_IDX          : natural;
+    GC_COSIM_ENABLE          : boolean);
   port (
     arst : in  std_logic
   );
@@ -39,9 +40,10 @@ architecture th of axistream_uart_uvvm_th is
   constant C_CLK_FREQ   : natural := 50000000;
   constant C_BAUDRATE   : natural := 115200;
   
-  signal clk : std_logic;
-  signal dut_rxd : std_logic;
-  signal dut_txd : std_logic;
+  signal clk       : std_logic;
+  signal clk_cosim : std_logic;
+  signal dut_rxd   : std_logic;
+  signal dut_txd   : std_logic;
 
   subtype t_axistream_8b is t_axistream_if(tdata(7 downto 0),
                                            tkeep(0 downto 0),
@@ -86,6 +88,12 @@ begin
       m_axis_receive_tdata   => axistream_if_receive.tdata,
       m_axis_receive_tvalid  => axistream_if_receive.tvalid,
       m_axis_receive_tready  => axistream_if_receive.tready);
+
+  i_uvvm_cosim: entity work.uvvm_cosim
+    generic map (
+      GC_COSIM_EN => GC_COSIM_ENABLE)
+    port map (
+      clk => clk_cosim);
 
   i_axistream_vvc_transmit : entity bitvis_vip_axistream.axistream_vvc
     generic map (
@@ -133,6 +141,18 @@ begin
     )
     port map (
       clk => clk
+    );
+
+  -- Clock generator 1 MHz for cosim
+  i2_clock_generator_vvc : entity bitvis_vip_clock_generator.clock_generator_vvc
+    generic map (
+      GC_INSTANCE_IDX    => 1,
+      GC_CLOCK_NAME      => "Clock cosim",
+      GC_CLOCK_PERIOD    => 1000 ns,
+      GC_CLOCK_HIGH_TIME => 500 ns
+    )
+    port map (
+      clk => clk_cosim
     );
 
 end architecture th;

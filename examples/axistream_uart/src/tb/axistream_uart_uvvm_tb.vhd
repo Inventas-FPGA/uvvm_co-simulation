@@ -56,7 +56,8 @@ begin
     generic map (
       GC_AXIS_VVC_TRANSMIT_IDX => C_AXIS_VVC_TRANSMIT_IDX,
       GC_AXIS_VVC_RECEIVE_IDX  => C_AXIS_VVC_RECEIVE_IDX,
-      GC_UART_VVC_IDX          => C_UART_VVC_IDX)
+      GC_UART_VVC_IDX          => C_UART_VVC_IDX,
+      GC_COSIM_ENABLE          => (GC_TESTCASE = "TC_COSIM"))
     port map (
       arst => arst
       );
@@ -132,6 +133,21 @@ begin
       
     end procedure test_case_uart_simultaneous_transmit_receive;
 
+    procedure test_case_cosim(void : t_void) is
+    begin
+
+      -- Make sure we have infinite timeout for UART RX
+      shared_uart_vvc_config(RX, C_UART_VVC_IDX).bfm_config.timeout := 0 ns;
+
+      -- No alert for timeout on AXI-S VVC used for receive
+      shared_axistream_vvc_config(C_AXIS_VVC_RECEIVE_IDX).bfm_config.max_wait_cycles_severity := NO_ALERT;
+
+      -- Start clock for cosim scheduler
+      start_clock(CLOCK_GENERATOR_VVCT, 1, "Start cosim clock generator");
+
+      wait for 5000 ms;
+    end procedure test_case_cosim;
+
   begin
 
     -- Create separate log files for each test case
@@ -193,6 +209,8 @@ begin
       test_case_uart_receive(VOID);
     elsif GC_TESTCASE = "TC_UART_SIMULTANEOUS_TRANSMIT_RECEIVE" then
       test_case_uart_simultaneous_transmit_receive(VOID);
+    elsif GC_TESTCASE = "TC_COSIM" then
+      test_case_cosim(VOID);
     end if;
 
     -----------------------------------------------------------------------------
