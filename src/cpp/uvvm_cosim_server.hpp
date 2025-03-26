@@ -22,12 +22,15 @@ private:
   shared_map<VvcInstanceKey, VvcInstanceData, VvcCompare> vvcInstanceMap;
 
   std::atomic<bool> startSim=false;
+  std::atomic<bool> terminateSim=false;
 
   // --------------------------------------------------------------------------
   // JSON-RPC remote procedures
   // --------------------------------------------------------------------------
 
   JsonResponse StartSim();
+  JsonResponse PauseSim();
+  JsonResponse TerminateSim();
   JsonResponse GetVvcList();
   JsonResponse SetVvcListenEnable(std::string vvc_type, int vvc_id, bool enable);
 
@@ -71,6 +74,12 @@ public:
 
     jsonRpcServer.Add("StartSim",
 		      GetHandle(&UvvmCosimServer::StartSim, *this), {});
+
+    jsonRpcServer.Add("PauseSim",
+		      GetHandle(&UvvmCosimServer::PauseSim, *this), {});
+
+    jsonRpcServer.Add("TerminateSim",
+		      GetHandle(&UvvmCosimServer::TerminateSim, *this), {});
   }
 
   ~UvvmCosimServer()
@@ -93,6 +102,7 @@ public:
   }
 
   void WaitForStartSim();
+  bool ShouldTerminateSim();
 
   bool VvcListenEnabled(std::string vvc_type,
 			   int vvc_instance_id);

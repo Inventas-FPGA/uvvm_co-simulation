@@ -69,7 +69,7 @@ begin
 
   inst_uvvm_cosim: entity work.uvvm_cosim
     generic map (
-      GC_SIM_RUN_CTRL_EN => true)
+      GC_COSIM_EN => true)
     port map (
       clk => clk);
 
@@ -200,13 +200,14 @@ begin
 
     report "Starting test";
 
+
+    -----------------------------------------------------------------------------
+    -- Wait for a long time to allow cosim control
+    -----------------------------------------------------------------------------
     wait for 1000 ms;
-
-    log(ID_LOG_HDR, "SIMULATION COMPLETED", C_SCOPE);
-
-    report_alert_counters(FINAL);       -- Report final counters and print conclusion for simulation (Success/Fail)
-
-    std.env.stop; -- or std.env.finish
+    alert(ERROR, "Simulation timeout - was not terminated from cosim", C_SCOPE);
+    report_alert_counters(FINAL);
+    std.env.stop;
   end process;
 
 end architecture sim;

@@ -48,6 +48,7 @@ def main():
                                one_way=False)
     print(f"response = {response}")
 
+    rpc_client.call(method="TerminateSim", args=None, kwargs=None)
 
 if __name__ == '__main__':
     main()

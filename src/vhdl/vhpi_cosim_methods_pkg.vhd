@@ -5,7 +5,11 @@ context uvvm_util.uvvm_util_context;
 
 package vhpi_cosim_methods_pkg is
 
+  -- Blocks until simulation should run/resume
   procedure vhpi_cosim_start_sim;
+
+  -- Returns bool as integer. True=1, False=0.
+  function vhpi_cosim_terminate_sim return integer;
 
   procedure vhpi_cosim_report_vvc_info(
     constant vvc_type        : in string;
@@ -14,7 +18,6 @@ package vhpi_cosim_methods_pkg is
     constant bfm_cfg         : in string
     );
 
-  -- TODO: Replace and add attribute for VHPI implementation
   function vhpi_cosim_vvc_listen_enable (
     constant vvc_type        : string;
     constant vvc_instance_id : integer)
@@ -38,6 +41,7 @@ package vhpi_cosim_methods_pkg is
     constant end_of_packet   : in integer);
 
   attribute foreign of vhpi_cosim_start_sim            : procedure is "VHPI uvvm_cosim_lib vhpi_cosim_start_sim";
+  attribute foreign of vhpi_cosim_terminate_sim        : function  is "VHPI uvvm_cosim_lib vhpi_cosim_terminate_sim";
   attribute foreign of vhpi_cosim_report_vvc_info      : procedure is "VHPI uvvm_cosim_lib vhpi_cosim_report_vvc_info";
   attribute foreign of vhpi_cosim_vvc_listen_enable    : function  is "VHPI uvvm_cosim_lib vhpi_cosim_listen_enable";
   attribute foreign of vhpi_cosim_transmit_queue_empty : function  is "VHPI uvvm_cosim_lib vhpi_cosim_transmit_queue_empty";
@@ -53,6 +57,11 @@ package body vhpi_cosim_methods_pkg is
   begin
     report "Error: Should use foreign VHPI implementation" severity failure;
   end procedure;
+
+  function vhpi_cosim_terminate_sim return integer is
+  begin
+    report "Error: Should use foreign VHPI implementation" severity failure;
+  end function;
 
   procedure vhpi_cosim_report_vvc_info(
     constant vvc_type        : in string;
@@ -73,21 +82,21 @@ package body vhpi_cosim_methods_pkg is
   end;
 
   function vhpi_cosim_transmit_queue_empty(
-    constant vvc_type        :    string;
-    constant vvc_instance_id : in integer) return integer is
+    constant vvc_type        : string;
+    constant vvc_instance_id : integer) return integer is
   begin
     report "Error: Should use foreign VHPI implementation" severity failure;
   end function;
 
   function vhpi_cosim_transmit_queue_get(
-    constant vvc_type        :    string;
-    constant vvc_instance_id : in integer) return integer is
+    constant vvc_type        : string;
+    constant vvc_instance_id : integer) return integer is
   begin
     report "Error: Should use foreign VHPI implementation" severity failure;
   end function;
 
   procedure vhpi_cosim_receive_queue_put(
-    constant vvc_type        :    string;
+    constant vvc_type        : in string;
     constant vvc_instance_id : in integer;
     constant byte            : in integer;
     constant end_of_packet   : in integer
