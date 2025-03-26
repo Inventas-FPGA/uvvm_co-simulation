@@ -101,3 +101,14 @@ jobs:
         run: |
           set -o pipefail
           make hdl_sim | sed -e 's/^/[HDL]: /' & sleep 5 && ./uvvm_cosim_example_client | sed -e 's/^/[COSIM]: /' & wait -n
+
+      - name: 'Build UART example HDL simulation with NVC'
+        working-directory: ./examples/axistream_uart/run
+        run: |
+          python ../scripts/run.py -s NVC --no_sim -v
+
+      - name: 'Run UART cosim example with NVC'
+        working-directory: ./examples/axistream_uart/run
+        run: |
+          python ../scripts/run.py -s NVC -tc axistream_uart_uvvm_tb.tb.TC_COSIM | sed -e 's/^/[HDL]: /' & sleep 5 && python ../scripts/uart_cosim_test.py | sed -e 's/^/[COSIM]: /' & wait -n
+
