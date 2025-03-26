@@ -48,7 +48,7 @@ def main():
     init(hr)
 
     if hr.settings.get_simulator_name() == "NVC":
-        print("Starting NVC sim")
+        print("Using NVC compiler/simulator")
 
         # Override heap space parameters to NVC
         # These are by default set to -H64m and -M64m in HDLregression,

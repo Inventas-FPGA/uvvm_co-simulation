@@ -19,16 +19,16 @@ add_library(uvvm_cosim_vhpi SHARED
 target_include_directories(uvvm_cosim_vhpi PRIVATE thirdparty/json-rpc-cxx/include thirdparty/json-rpc-cxx/vendor thirdparty/json-rpc-cxx/examples ${NVC_PATH}/include)
 set_property(TARGET uvvm_cosim_vhpi PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-# NVC simulation target
-add_custom_target(nvc_sim
-                  DEPENDS uvvm_cosim_vhpi
-                  COMMAND nvc -a ${CMAKE_SOURCE_DIR}/test/vhpi_testbench.vhd
-                  COMMAND nvc -e tb
-                  COMMAND nvc -r --load ./libuvvm_cosim_vhpi.so tb)
 
-add_custom_target(hdl_run
+# Build example simulation using HDLregression
+add_custom_target(hdl_build
                   DEPENDS uvvm_cosim_vhpi
-                  COMMAND python ${CMAKE_SOURCE_DIR}/run.py -fr -s nvc -v)
+                  COMMAND python ${CMAKE_SOURCE_DIR}/run.py --no_sim -s nvc -v)
+
+# Run/simulate example using HDLregression
+add_custom_target(hdl_sim
+                  DEPENDS uvvm_cosim_vhpi
+                  COMMAND python ${CMAKE_SOURCE_DIR}/run.py -fr -s nvc)
 
 
 # JSON RPC example client

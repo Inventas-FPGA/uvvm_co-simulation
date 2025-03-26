@@ -36,9 +36,10 @@ jobs:
           cd nvc
           ./autogen.sh
           mkdir build && cd build
-          ../configure --prefix=/opt
+          ../configure --prefix=/opt/nvc
           make
           sudo make install
+          echo "/opt/nvc/bin" >> "$GITHUB_PATH"
 
       - name: 'Checkout'
         uses: actions/checkout@v4
@@ -85,3 +86,18 @@ jobs:
 #        uses: codecov/codecov-action@eaaf4bedf32dbdc6b720b63067d99c4d77d6047d # v3
 #        env:
 #          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: 'Build co-sim library and example client'
+        working-directory: ./build
+        run: |
+          make
+
+      - name: 'Build HDL simulation with NVC'
+        working-directory: ./build
+        run: |
+          make hdl_build
+
+      - name: 'Run HDL simulation with NVC with C++ example client'
+        working-directory: ./build
+        run: |
+          set -o pipefail
+          make hdl_sim | sed -e 's/^/[HDL]: /' & sleep 5 && ./uvvm_cosim_example_client | sed -e 's/^/[COSIM]: /' & wait -n
