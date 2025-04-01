@@ -4,7 +4,7 @@
 #include <cstring>
 #include <vhpi_user.h>
 
-inline std::string get_vhpi_cb_string_param_by_index(const vhpiCbDataT* p_cb_data, int param_index)
+static inline std::string get_vhpi_str_param_by_index(const vhpiCbDataT* p_cb_data, int param_index)
 {
   // String buffer size is pretty large to accomodate
   // BFM config strings that may get pretty long
@@ -32,7 +32,7 @@ inline std::string get_vhpi_cb_string_param_by_index(const vhpiCbDataT* p_cb_dat
   return std::string(reinterpret_cast<char *>(vhpi_val.value.str));
 }
 
-inline int get_vhpi_cb_int_param_by_index(const vhpiCbDataT* p_cb_data, int param_index)
+static inline int get_vhpi_int_param_by_index(const vhpiCbDataT* p_cb_data, int param_index)
 {
   vhpiHandleT h_param = vhpi_handle_by_index(vhpiParamDecls,
 					     p_cb_data->obj,
@@ -49,7 +49,7 @@ inline int get_vhpi_cb_int_param_by_index(const vhpiCbDataT* p_cb_data, int para
   return vhpi_val.value.intg;
 }
 
-inline void set_vhpi_int_retval(const vhpiCbDataT* p_cb_data, int value)
+static inline void return_vhpi_int(const vhpiCbDataT* p_cb_data, int value)
 {
   vhpiValueT ret_val = {
     .format = vhpiIntVal,
@@ -58,7 +58,7 @@ inline void set_vhpi_int_retval(const vhpiCbDataT* p_cb_data, int value)
   vhpi_put_value(p_cb_data->obj, &ret_val, vhpiDeposit);
 }
 
-inline void check_foreignf_registration(const vhpiHandleT& h, const char* func_name, vhpiForeignKindT kind)
+static inline void check_foreignf_registration(const vhpiHandleT& h, const char* func_name, vhpiForeignKindT kind)
 {
   vhpiForeignDataT check;
 
@@ -80,10 +80,10 @@ inline void check_foreignf_registration(const vhpiHandleT& h, const char* func_n
 
 typedef void (*vhpi_cb_func_t)(const struct vhpiCbDataS *cb_data_p);
 
-inline void register_vhpi_foreign_method(vhpi_cb_func_t func,
-                                         const char *func_name,
-                                         const char *lib_name,
-                                         const vhpiForeignKindT &kind) {
+static inline void register_vhpi_foreign_method(vhpi_cb_func_t func,
+                                                const char *func_name,
+                                                const char *lib_name,
+                                                const vhpiForeignKindT &kind) {
   // Non-const copies of these strings since libraryName and modelName
   // are annoyingly declared non-const in vhpiForeignDataT.  NVC does
   // make copies of these (so could have just re-casted to non-const,
@@ -94,7 +94,7 @@ inline void register_vhpi_foreign_method(vhpi_cb_func_t func,
 
   strcpy(func_name_non_const, func_name);
   strcpy(lib_name_non_const, lib_name);
-  
+
   vhpiForeignDataT foreignData = {
     .kind        = kind,
     .libraryName = lib_name_non_const,

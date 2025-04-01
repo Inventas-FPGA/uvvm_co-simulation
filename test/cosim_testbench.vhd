@@ -8,6 +8,9 @@ context uvvm_util.uvvm_util_context;
 library uvvm_vvc_framework;
 use uvvm_vvc_framework.ti_vvc_framework_support_pkg.all;
 
+library uvvm_cosim_lib;
+use uvvm_cosim_lib.all;
+
 library bitvis_vip_uart;
 context bitvis_vip_uart.vvc_context;
 
@@ -22,16 +25,16 @@ end entity tb;
 
 architecture sim of tb is
 
-  signal clk : std_logic;
+  signal clk      : std_logic := '0';
 
   signal uart0_rx : std_logic;
   signal uart0_tx : std_logic := '1';
   signal uart1_rx : std_logic;
   signal uart1_tx : std_logic := '1';
 
-  constant C_CLK_PERIOD : time    := 20 ns;
-  constant C_CLK_FREQ   : natural := 50000000;
-  constant C_BAUDRATE   : natural := 1000000;
+  constant C_CLK_PERIOD       : time    := 20 ns;
+  constant C_CLK_FREQ         : natural := 50000000;
+  constant C_BAUDRATE         : natural := 1000000;
 
   subtype t_axistream_8b is t_axistream_if(tdata(7 downto 0),
                                            tkeep(0 downto 0),
@@ -67,7 +70,7 @@ begin
   axistream_if_receive.tlast   <= axistream_if_transmit.tlast;
   axistream_if_transmit.tready <= axistream_if_receive.tready;
 
-  inst_uvvm_cosim: entity work.uvvm_cosim
+  inst_uvvm_cosim: entity uvvm_cosim_lib.uvvm_cosim
     generic map (
       GC_COSIM_EN => true)
     port map (
@@ -198,8 +201,7 @@ begin
     wait for C_CLK_PERIOD;
     start_clock(CLOCK_GENERATOR_VVCT, 0, "Start clock generator");
 
-    report "Starting test";
-
+    report "Starting test";-- Test
 
     -----------------------------------------------------------------------------
     -- Wait for a long time to allow cosim control

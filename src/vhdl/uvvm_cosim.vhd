@@ -17,9 +17,9 @@ context bitvis_vip_uart.vvc_context;
 library bitvis_vip_axistream;
 context bitvis_vip_axistream.vvc_context;
 
-library work;
-use work.uvvm_cosim_utils_pkg.all;
-use work.vhpi_cosim_methods_pkg.all;
+library uvvm_cosim_lib;
+use uvvm_cosim_lib.uvvm_cosim_utils_pkg.all;
+use uvvm_cosim_lib.uvvm_cosim_foreign_pkg.all;
 
 entity uvvm_cosim is
   generic (
@@ -92,10 +92,10 @@ begin
       end if;
 
       -- Todo:
-      -- Rename to uvvm_cosim_vhpi_report_vvc_instance??
+      -- Rename to uvvm_cosim_foreign_report_vvc_instance??
 
-      -- Report VVC info to cosim server via VHPI
-      vhpi_cosim_report_vvc_info(
+      -- Report VVC info to cosim server via foreign call
+      uvvm_cosim_foreign_report_vvc_info(
         shared_vvc_activity_register.priv_get_vvc_name(idx),
         to_string(vvc_channel),
         vvc_instance_id,
@@ -108,9 +108,9 @@ begin
 
     init_done <= '1';
 
-    while vhpi_cosim_terminate_sim = 0 loop
+    while uvvm_cosim_foreign_terminate_sim = 0 loop
       wait until rising_edge(clk);
-      vhpi_cosim_start_sim; -- Blocks if user paused sim
+      uvvm_cosim_foreign_start_sim; -- Blocks if user paused sim
     end loop;
 
     -- TODO:
@@ -124,7 +124,7 @@ begin
 
   g_uart_vvc_ctrl: for vvc_idx in 0 to C_UART_VVC_MAX_INSTANCE_NUM-1 generate
 
-    inst_uart_vvc_ctrl : entity work.uvvm_cosim_uart_vvc_ctrl
+    inst_uart_vvc_ctrl : entity uvvm_cosim_lib.uvvm_cosim_uart_vvc_ctrl
       generic map (
         GC_VVC_IDX => vvc_idx)
       port map (
@@ -137,7 +137,7 @@ begin
 
   g_axis_vvc_ctrl: for vvc_idx in 0 to C_AXISTREAM_VVC_MAX_INSTANCE_NUM-1 generate
 
-    inst_axis_vvc_ctrl: entity work.uvvm_cosim_axis_vvc_ctrl
+    inst_axis_vvc_ctrl: entity uvvm_cosim_lib.uvvm_cosim_axis_vvc_ctrl
       generic map (
         GC_VVC_IDX => vvc_idx)
       port map (
