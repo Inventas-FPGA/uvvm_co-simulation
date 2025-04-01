@@ -1,6 +1,11 @@
 -- Declarations of foreign functions/procedures/callbacks used for
 -- cosim with attributes for Modelsim/Questasim FLI
 
+-- NOTE about foreign functions (not procedures):
+-- It is best to obey the same pure/impure rules as normal VHDL functions.
+-- Modelsim may aggressively optimize away calls to pure FLI functions if
+-- it thinks the arguments have not changed.
+
 package uvvm_cosim_foreign_pkg is
 
   -- Blocks until simulation should run/resume
