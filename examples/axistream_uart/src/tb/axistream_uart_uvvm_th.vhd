@@ -14,6 +14,9 @@ context uvvm_util.uvvm_util_context;
 library uvvm_vvc_framework;
 use uvvm_vvc_framework.ti_vvc_framework_support_pkg.all;
 
+library uvvm_cosim_lib;
+use uvvm_cosim_lib.all;
+
 library bitvis_vip_clock_generator;
 context bitvis_vip_clock_generator.vvc_context;
 
@@ -89,7 +92,7 @@ begin
       m_axis_receive_tvalid  => axistream_if_receive.tvalid,
       m_axis_receive_tready  => axistream_if_receive.tready);
 
-  i_uvvm_cosim: entity work.uvvm_cosim
+  i_uvvm_cosim: entity uvvm_cosim_lib.uvvm_cosim
     generic map (
       GC_COSIM_EN => GC_COSIM_ENABLE)
     port map (
