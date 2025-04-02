@@ -1,3 +1,4 @@
+import os
 import pathlib
 import sys
 
@@ -13,7 +14,7 @@ sys.path.append('../../../thirdparty/hdlregression') # Just to make LSP server u
 
 from hdlregression import HDLRegression
 
-def init(hr):
+def add_project_files(hr):
     # The command below can be used to compile all of UVVM, it is not necessary
     # to compile individual libraries as we have done below (it is a bit faster
     # to online compile the libraries that are actually used though).
@@ -38,8 +39,18 @@ def init(hr):
     hr.add_files(repo_path / "thirdparty" / "uvvm" / "bitvis_vip_clock_generator" / "src" / "*.vhd",          "bitvis_vip_clock_generator")
     hr.add_files(repo_path / "thirdparty" / "uvvm" / "uvvm_vvc_framework" / "src_target_dependent" / "*.vhd", "bitvis_vip_clock_generator")
 
-    # UVVM cosim
-    hr.add_files(repo_path / "src" / "vhdl" / "*.vhd", "work")
+    # UVVM cosim module code
+    hr.add_files(repo_path / "src" / "vhdl" / "uvvm_cosim_axis_vvc_ctrl.vhd", "uvvm_cosim_lib")
+    hr.add_files(repo_path / "src" / "vhdl" / "uvvm_cosim_uart_vvc_ctrl.vhd", "uvvm_cosim_lib")
+    hr.add_files(repo_path / "src" / "vhdl" / "uvvm_cosim_utils_pkg.vhd", "uvvm_cosim_lib")
+    hr.add_files(repo_path / "src" / "vhdl" / "uvvm_cosim.vhd", "uvvm_cosim_lib")
+
+    if hr.settings.get_simulator_name() == "NVC":
+        hr.add_files(repo_path / "src" / "vhdl" / "uvvm_cosim_foreign_pkg_vhpi.vhd", "uvvm_cosim_lib")
+    elif hr.settings.get_simulator_name() == "MODELSIM":
+        hr.add_files(repo_path / "src" / "vhdl" / "uvvm_cosim_foreign_pkg_fli.vhd", "uvvm_cosim_lib")
+
+    hr.add_files(repo_path / "src" / "vhdl" / "uvvm_cosim_foreign_pkg_body.vhd", "uvvm_cosim_lib")
 
     # Add RTL code for AXI-Stream UART
     hr.add_files(uart_path / "src" / "rtl" / "*.vhd", "work")
@@ -50,7 +61,12 @@ def init(hr):
 
 def main():
     hr = HDLRegression()
-    init(hr)
+
+    if not hr.settings.get_simulator_name() in ("NVC", "MODELSIM"):
+        print(f"Unsupported simulator {hr.settings.get_simulator_name()}. Only NVC and Modelsim/Questasim supported currently.")
+        return -1
+
+    add_project_files(hr)
 
     if hr.settings.get_simulator_name() == "NVC":
         print("Starting NVC sim")
@@ -63,10 +79,16 @@ def main():
         global_opts.append("-M1g")
         hr.settings.set_global_options(global_opts)
 
-        return hr.start(sim_options=[f"--load={repo_path / '..' / 'uvvm_co-simulation' / 'build' / 'libuvvm_cosim_vhpi.so'}"])
-    else:
-        # TODO: Add parameters to load cosim lib for other simulators
-        return hr.start()
+        return hr.start(sim_options=[f"--load={repo_path / 'build' / 'libuvvm_cosim_vhpi.so'}"])
+
+    elif hr.settings.get_simulator_name() == "MODELSIM":
+        print("Using Modelsim/Questasim")
+
+        # Modelsim needs to find the cosim library in the build directory
+        # See "Location of Shared Object Files" in the Foreign Language Reference Manual for options.
+        # Here we just set $MGC_WD (one of the searched paths) to point to the build directory
+        os.environ["MGC_WD"] = f"{repo_path / 'build'}"
+        return hr.start(sim_options=["-voptargs=+acc=r", "-foreign {uvvm_cosim_fli_init libuvvm_cosim_fli.so}"])
 
 if __name__ == '__main__':
     sys.exit(main())

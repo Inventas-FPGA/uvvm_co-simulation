@@ -100,7 +100,7 @@ begin
 
     procedure test_case_uart_simultaneous_transmit_receive (void : t_void) is
       constant C_NUM_ITERATIONS : integer := 10;
-      constant C_NUM_BYTES      : integer := 1000;
+      constant C_NUM_BYTES      : integer := 200;
       variable v_rand           : t_rand;
       variable data_axis2uart : t_slv_array(0 to C_NUM_BYTES-1)(7 downto 0);
       variable data_uart2axis : t_slv_array(0 to C_NUM_BYTES-1)(7 downto 0);

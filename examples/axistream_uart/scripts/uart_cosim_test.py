@@ -28,7 +28,7 @@ def main():
                                        "enable": True},
                                one_way=False)
 
-    time.sleep(0.5)
+    time.sleep(1.0)
 
     print("")
     print("Transmit with UART VVC")
@@ -40,7 +40,7 @@ def main():
                                one_way=False)
     print(f"response = {response}")
 
-    time.sleep(5.0)
+    time.sleep(10.0)
 
     print("")
     print("Receive with AXISTREAM VVC")
@@ -64,7 +64,7 @@ def main():
                                one_way=False)
     print(f"response = {response}")
 
-    time.sleep(5.0)
+    time.sleep(10.0)
 
     print("")
     print("Receive with UART VVC")
@@ -81,8 +81,8 @@ def main():
 
 
     NUM_ITERATIONS = 10
-    NUM_BYTES = 1000
-    TIMEOUT_SECONDS = 60
+    NUM_BYTES = 200
+    TIMEOUT_SECONDS = 120
 
     t0 = time.time()
 

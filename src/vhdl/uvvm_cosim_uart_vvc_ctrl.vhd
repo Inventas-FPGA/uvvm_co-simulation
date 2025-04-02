@@ -11,9 +11,9 @@ use uvvm_vvc_framework.ti_vvc_framework_support_pkg.all;
 library bitvis_vip_uart;
 context bitvis_vip_uart.vvc_context;
 
-library work;
-use work.uvvm_cosim_utils_pkg.all;
-use work.vhpi_cosim_methods_pkg.all;
+library uvvm_cosim_lib;
+use uvvm_cosim_lib.uvvm_cosim_utils_pkg.all;
+use uvvm_cosim_lib.uvvm_cosim_foreign_pkg.all;
 
 entity uvvm_cosim_uart_vvc_ctrl is
   generic (
@@ -53,13 +53,13 @@ begin
       wait until rising_edge(clk);
 
       -- Schedule VVC transmit commands
-      while vhpi_cosim_transmit_queue_empty(C_VVC_TYPE, GC_VVC_IDX) = 0 loop
+      while uvvm_cosim_foreign_transmit_queue_empty("UART_VVC", GC_VVC_IDX) = 0 loop
 
         if vvc_status.pending_cmd_cnt >= C_CMD_QUEUE_COUNT_THRESHOLD then
           exit;
         end if;
 
-        v_data := std_logic_vector(to_unsigned(vhpi_cosim_transmit_queue_get(C_VVC_TYPE, GC_VVC_IDX), v_data'length));
+        v_data := std_logic_vector(to_unsigned(uvvm_cosim_foreign_transmit_queue_get(C_VVC_TYPE, GC_VVC_IDX), v_data'length));
 
         log(ID_SEQUENCER, "Got byte to transmit: " & to_string(v_data, HEX), C_SCOPE);
 
@@ -68,11 +68,12 @@ begin
         -- like we do for the AXI-Stream VVC
         uart_transmit(UART_VVCT, GC_VVC_IDX, TX, v_data, "Transmit from uvvm_cosim_uart_vvc_ctrl");
 
-        if vhpi_cosim_transmit_queue_empty(C_VVC_TYPE, GC_VVC_IDX) = 1 then
+        if uvvm_cosim_foreign_transmit_queue_empty(C_VVC_TYPE, GC_VVC_IDX) = 1 then
           log(ID_SEQUENCER, "Transmit queue now empty for VVC index " & to_string(GC_VVC_IDX), C_SCOPE);
         end if;
 
       end loop;
+
     end loop;
 
   end process p_transmit;
@@ -89,13 +90,9 @@ begin
 
     variable v_start_new_transaction   : boolean := true;
 
-    function listen_enable (void : t_void) return boolean is
+    impure function listen_enable (void : t_void) return boolean is
     begin
-      if vhpi_cosim_vvc_listen_enable("UART_VVC", GC_VVC_IDX) then
-        return true;
-      else
-        return false;
-      end if;
+      return uvvm_cosim_foreign_vvc_listen_enable("UART_VVC", GC_VVC_IDX) = 1;
     end function listen_enable;
 
     procedure check_bfm_config (void : t_void) is
@@ -154,10 +151,10 @@ begin
 
             -- Last argument is end of packet flag which is not used
             -- for UART (so it's always false)
-            vhpi_cosim_receive_queue_put(C_VVC_TYPE, GC_VVC_IDX,
-                                         to_integer(unsigned(v_result_data)),
-                                         0 -- end_of_packet=false (not used)
-                                         );
+            uvvm_cosim_foreign_receive_queue_put(C_VVC_TYPE, GC_VVC_IDX,
+                                                 to_integer(unsigned(v_result_data)),
+                                                 0 -- end_of_packet=false (not used)
+                                                 );
           end if;
 
           v_start_new_transaction := true;
