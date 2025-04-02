@@ -23,7 +23,7 @@ use work.vhpi_cosim_methods_pkg.all;
 
 entity uvvm_cosim is
   generic (
-    GC_SIM_RUN_CTRL_EN : boolean := false);
+    GC_COSIM_EN : boolean := false);
   port (
     clk : in std_logic);
 end entity uvvm_cosim;
@@ -50,15 +50,11 @@ begin
 
     log(ID_SEQUENCER, "UVVM initialization complete!", C_SCOPE);
 
-    if GC_SIM_RUN_CTRL_EN then
-      log(ID_SEQUENCER, "Waiting to start simulation", C_SCOPE);
-
-      vhpi_cosim_start_sim; -- Blocks until user says sim should start
-
-      log(ID_SEQUENCER, "Starting simulation", C_SCOPE);
+    if GC_COSIM_EN then
+      log(ID_SEQUENCER, "Co-simulation enabled", C_SCOPE);
     else
-      -- Co-sim disabled
-      wait;
+      log(ID_SEQUENCER, "Co-simulation disabled", C_SCOPE);
+      wait; -- Wait forever
     end if;
 
     -- Check which VVCs were registered in this testbench
@@ -112,7 +108,18 @@ begin
 
     init_done <= '1';
 
-    wait;
+    while vhpi_cosim_terminate_sim = 0 loop
+      wait until rising_edge(clk);
+      vhpi_cosim_start_sim; -- Blocks if user paused sim
+    end loop;
+
+    -- TODO:
+    -- Probably better to flag that cosim is done with an output,
+    -- and let the user stop the simulation from their testbench.
+    log(ID_LOG_HDR, "CO-SIMULATION TERMINATED BY USER", C_SCOPE);
+    report_alert_counters(FINAL);
+    std.env.stop;
+
   end process p_uvvm_cosim_init;
 
   g_uart_vvc_ctrl: for vvc_idx in 0 to C_UART_VVC_MAX_INSTANCE_NUM-1 generate

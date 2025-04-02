@@ -20,6 +20,14 @@ public:
     return CallMethod<JsonResponse>(requestId++, "StartSim", {});
   }
 
+  JsonResponse PauseSim() {
+    return CallMethod<JsonResponse>(requestId++, "PauseSim", {});
+  }
+
+  JsonResponse TerminateSim() {
+    return CallMethod<JsonResponse>(requestId++, "TerminateSim", {});
+  }
+
   JsonResponse GetVvcList() {
     return CallMethod<JsonResponse>(requestId++, "GetVvcList", {});
   }

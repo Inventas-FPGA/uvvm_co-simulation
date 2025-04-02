@@ -66,9 +66,15 @@ UvvmCosimServer::WaitForStartSim()
 {
   using namespace std::chrono_literals;
 
-  while (!startSim) {
+  while (!startSim && !terminateSim) {
     std::this_thread::sleep_for(10ms);
   }
+}
+
+bool
+UvvmCosimServer::ShouldTerminateSim()
+{
+  return terminateSim;
 }
 
 bool
@@ -219,7 +225,34 @@ UvvmCosimServer::StartSim()
   startSim=true;
 
   JsonResponse response = {
-    .success = false
+    .success = true
+  };
+
+  return response;
+}
+
+JsonResponse
+UvvmCosimServer::PauseSim()
+{
+  startSim=false;
+
+  JsonResponse response = {
+    .success = true
+  };
+
+  return response;
+}
+
+JsonResponse
+UvvmCosimServer::TerminateSim()
+{
+  terminateSim=true;
+
+  std::cout << std::endl << std::endl << std::endl;
+  std::cout << "TERMINATING SIM!!!" << std::endl << std::endl << std::endl;
+
+  JsonResponse response = {
+    .success = true
   };
 
   return response;

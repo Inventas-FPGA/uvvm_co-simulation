@@ -121,10 +121,14 @@ int main(int argc, char** argv)
     print_receive_result(res, "AXI-Stream");
   }
 
+  std::cout << "Pause sim" << std::endl;
+  client.PauseSim();
 
   std::cout << "UART: Transmit some data..." << std::endl;
-
   client.TransmitBytes("UART_VVC", 0, {0xCA, 0xFE, 0xAA, 0x12, 0x34, 0x55});
+
+  std::cout << "Resume sim" << std::endl;
+  client.StartSim();
 
   // Assume data has been transmitted/received after 1.0 seconds
   std::this_thread::sleep_for(1.0s);
@@ -173,4 +177,9 @@ int main(int argc, char** argv)
     print_receive_result(res, "UART");
   }
 
+  std::cout << "Terminating simulation." << std::endl;
+
+  client.TerminateSim();
+
+  std::cout << "DONE." << std::endl;
 }

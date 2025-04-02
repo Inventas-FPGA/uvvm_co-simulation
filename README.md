@@ -27,14 +27,14 @@ Assuming you have a UVVM testbench with VVCs setup already, the basic steps to i
 ```
 inst_uvvm_cosim: entity work.uvvm_cosim
     generic map (
-      GC_SIM_RUN_CTRL_EN => true)
+      GC_COSIM_EN => true)
     port map (
       clk => clk);
 ```
 
 2. Add a test case or mode where your DUT is in a "free-running" mode.
 
-It should be reset, initialized, have all the necessary clocks and be ready to use. Your testbench sequencer process should either run "forever" or with a very long timeout. You should not drive stimuli to the DUT using the VVC instances you plan to access with the cosim library (but it's fine to drive other necessary stimuli, for example some input data for your DUT to process if you don't want to do this via co-sim).
+It should be reset, initialized, have all the necessary clocks and be ready to use. Your testbench sequencer process should either run "forever" or with a very long timeout. You should not drive stimuli to the DUT using the VVC instances you plan to access with the cosim library (but it's fine to drive other necessary stimuli, for example some input data for your DUT to process if you don't want to do this via co-sim). The `GC_COSIM_EN` generic parameter can be used to enable the co-simulation module only for the co-simulation test case.
 
 3. Make sure VVCs/BFMs are configured appropriately for co-sim
 
@@ -79,7 +79,8 @@ This will initialize all three submodules used in this project:
 - hdlregression
 - uvvm
 
-Technically, only json-rpc-cxx is needed to build the C++ library, so you can save some time by only updating that submodule. But run the example in this repo you will need all of them.
+Technically, only json-rpc-cxx is needed to build the C++ library, so you can save some time by only updating that submodule. But to run the example in this repo you will need all of them.
+The CMake build also expects to find NVC under `/opt/nvc` at the moment (it does not search anywhere else).
 
 To build the C++ library and C++ example client:
 

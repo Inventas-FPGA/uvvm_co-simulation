@@ -79,6 +79,14 @@ def main():
     print(f"request = {payload}")
     print(f"response = {response}")
 
+    payload = {
+        "method": "TerminateSim",
+        "params": [],
+        "jsonrpc": "2.0",
+        "id": next(id),
+    }
+    requests.post(url, json=payload).json()
+
 
 if __name__ == "__main__":
     main()

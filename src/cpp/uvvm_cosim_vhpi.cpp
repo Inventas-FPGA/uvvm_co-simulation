@@ -87,9 +87,18 @@ void vhpi_cosim_receive_queue_put(const vhpiCbDataT* p_cb_data)
 
 void vhpi_cosim_start_sim(const vhpiCbDataT* p_cb_data)
 {
-  vhpi_printf("vhpi_cosim_start_sim: Waiting to start sim");
   cosim_server->WaitForStartSim();
-  vhpi_printf("vhpi_cosim_start_sim: Starting sim");
+}
+
+void vhpi_cosim_terminate_sim(const vhpiCbDataT* p_cb_data)
+{
+  bool terminate = cosim_server->ShouldTerminateSim();
+
+  if (terminate) {
+    vhpi_printf("vhpi_cosim_terminate_sim: Terminating sim");
+  }
+
+  set_vhpi_int_retval(p_cb_data, terminate ? 1 : 0);
 }
 
 void vhpi_cosim_listen_enable(const vhpiCbDataT* p_cb_data)
@@ -154,6 +163,11 @@ void startup_register_foreign_methods(void)
 			       "vhpi_cosim_start_sim",
 			       c_lib_name,
 			       vhpiProcF);
+
+  register_vhpi_foreign_method(vhpi_cosim_terminate_sim,
+			       "vhpi_cosim_terminate_sim",
+			       c_lib_name,
+			       vhpiFuncF);
 
   register_vhpi_foreign_method(vhpi_cosim_listen_enable,
 			       "vhpi_cosim_listen_enable",
