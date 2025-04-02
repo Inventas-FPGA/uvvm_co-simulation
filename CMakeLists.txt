@@ -41,6 +41,13 @@ target_compile_options(uvvm_cosim_fli PRIVATE -ansi -pedantic -freg-struct-retur
 target_link_options(uvvm_cosim_fli PRIVATE -lpthread -Bsymbolic -export-dynamic -static-libstdc++)
 set_property(TARGET uvvm_cosim_fli PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+# TODO: Off by default for now since we don't bundle mti.h
+option(BUILD_VSIM_FLI "Compile Modelsim FLI version of library" OFF)
+
+if (NOT BUILD_VSIM_FLI)
+  set_target_properties(uvvm_cosim_fli PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
+endif()
+
 
 ###############################################################################
 # C++-based JSON RPC cosim example client
