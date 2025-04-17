@@ -38,7 +38,9 @@ def main():
         "jsonrpc": "2.0",
         "id": next(id),
     }
-    requests.post(url, json=payload).json()
+    response = requests.post(url, json=payload).json()
+    print(f"request = {payload}")
+    print(f"response = {response}")
 
     payload = {
         "method": "SetVvcListenEnable",
@@ -70,8 +72,8 @@ def main():
         "method": "ReceiveBytes",
         "params": {"vvc_type": "UART_VVC",
                    "vvc_id": 1,
-                   "length": 5,
-                   "all_or_nothing": False},
+                   "num_bytes": 5,
+                   "exact_length": False},
         "jsonrpc": "2.0",
         "id": next(id),
     }

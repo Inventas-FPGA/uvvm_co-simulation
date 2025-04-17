@@ -4,6 +4,8 @@
 #include "uvvm_cosim_types.hpp"
 #include "uvvm_cosim_common.hpp"
 
+namespace uvvm_cosim {
+
 // ----------------------------------------------------------------------------
 // SERVER FUNCTIONS
 // ----------------------------------------------------------------------------
@@ -38,38 +40,37 @@ static void stop_rpc_server(void)
 // VHPI foreign functions, procedures, and callbacks
 // ----------------------------------------------------------------------------
 
-bool uvvm_cosim_transmit_queue_empty(std::string vvc_type, int vvc_instance_id)
+bool transmit_byte_queue_empty(std::string vvc_type, int vvc_instance_id)
 {
   return cosim_server->TransmitQueueEmpty(vvc_type, vvc_instance_id);
 }
 
-int uvvm_cosim_transmit_queue_get(std::string vvc_type, int vvc_instance_id)
+int transmit_byte_queue_get(std::string vvc_type, int vvc_instance_id)
 {
   auto byte = cosim_server->TransmitQueueGet(vvc_type, vvc_instance_id);
 
-  // Use 9th bit to indicate end of packet
   if (byte) {
-    int data = byte.value().first;
-    data |= byte.value().second << 9;
+    int data = byte.value();
     return data;
   } else {
     // TODO:
     // Kill simulation if TransmitQueueGet didn't return anything?
+    sim_printf("Error: TransmitQueueGet did not return a byte");
     return 0;
   }
 }
 
-void uvvm_cosim_receive_queue_put(std::string vvc_type, int vvc_instance_id, uint8_t byte, bool end_of_packet)
+void receive_byte_queue_put(std::string vvc_type, int vvc_instance_id, uint8_t byte)
 {
-  cosim_server->ReceiveQueuePut(vvc_type, vvc_instance_id, byte, end_of_packet);
+  cosim_server->ReceiveQueuePut(vvc_type, vvc_instance_id, byte);
 }
 
-void uvvm_cosim_start_sim(void)
+void start_sim(void)
 {
   cosim_server->WaitForStartSim();
 }
 
-bool uvvm_cosim_terminate_sim(void)
+bool terminate_sim(void)
 {
   bool terminate = cosim_server->ShouldTerminateSim();
 
@@ -80,12 +81,12 @@ bool uvvm_cosim_terminate_sim(void)
   return terminate;
 }
 
-bool uvvm_cosim_vvc_listen_enable(std::string vvc_type, int vvc_instance_id)
+bool vvc_listen_enable(std::string vvc_type, int vvc_instance_id)
 {
   return cosim_server->VvcListenEnabled(vvc_type, vvc_instance_id);
 }
 
-void uvvm_cosim_report_vvc_info(std::string vvc_type,
+void report_vvc_info(std::string vvc_type,
 				std::string vvc_channel,
 				int vvc_instance_id,
 				std::string bfm_cfg_str)
@@ -100,14 +101,17 @@ void uvvm_cosim_report_vvc_info(std::string vvc_type,
   cosim_server->AddVvc(vvc_type, vvc_channel, vvc_instance_id, bfm_cfg_str);
 }
 
-void uvvm_cosim_start_of_sim(void)
+void start_of_sim(void)
 {
   sim_printf("Start of simulation");
   start_rpc_server();
 }
 
-void uvvm_cosim_end_of_sim(long cycles, long time_ns)
+void end_of_sim(long cycles, long time_ns)
 {
   sim_printf("End of simulation (after %ld cycles and %ld ns).", cycles, time_ns);
   stop_rpc_server();
 }
+
+} // namespace uvvm_cosim
+

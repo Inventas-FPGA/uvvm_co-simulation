@@ -8,21 +8,16 @@
 #include <jsonrpccxx/server.hpp>
 #include <cpphttplibconnector.hpp>
 #include "uvvm_cosim_types.hpp"
-#include "shared_map.hpp"
+#include "uvvm_cosim_data.hpp"
+
+namespace uvvm_cosim {
 
 class UvvmCosimServer {
 private:
 
   jsonrpccxx::JsonRpc2Server jsonRpcServer;
   CppHttpLibServerConnector httpServer;
-
-  // VvcInstanceKey: Identifies VVC by type, channel, id
-  // VvcInstanceData: Transmit+receive queue for VVC, config, etc.
-  // VvcCompare: Comparator class for VvcInstanceKey
-  shared_map<VvcInstanceKey, VvcInstanceData, VvcCompare> vvcInstanceMap;
-
-  std::atomic<bool> startSim=false;
-  std::atomic<bool> terminateSim=false;
+  UvvmCosimData cosimData;
 
   // --------------------------------------------------------------------------
   // JSON-RPC remote procedures
@@ -37,7 +32,7 @@ private:
   JsonResponse TransmitBytes(std::string vvc_type, int vvc_id, std::vector<uint8_t> data);
   JsonResponse TransmitPacket(std::string vvc_type, int vvc_id, std::vector<uint8_t> data);
 
-  JsonResponse ReceiveBytes(std::string vvc_type, int vvc_id, int length, bool all_or_nothing);
+  JsonResponse ReceiveBytes(std::string vvc_type, int vvc_id, int num_bytes, bool exact_length);
   JsonResponse ReceivePacket(std::string vvc_type, int vvc_id);
 
 public:
@@ -59,11 +54,11 @@ public:
 
     jsonRpcServer.Add("ReceiveBytes",
                       GetHandle(&UvvmCosimServer::ReceiveBytes, *this),
-                      {"vvc_type", "vvc_id", "length", "all_or_nothing"});
+                      {"vvc_type", "vvc_id", "num_bytes", "exact_length"});
 
     jsonRpcServer.Add("ReceivePacket",
                       GetHandle(&UvvmCosimServer::ReceivePacket, *this),
-                      {"vvc_type", "vvc_id", "length", "all_or_nothing"});
+                      {"vvc_type", "vvc_id"});
 
     jsonRpcServer.Add("GetVvcList",
                       GetHandle(&UvvmCosimServer::GetVvcList, *this), {});
@@ -112,9 +107,11 @@ public:
 
   bool TransmitQueueEmpty(std::string vvc_type, int vvc_instance_id);
 
-  std::optional<std::pair<uint8_t, bool>> TransmitQueueGet(std::string vvc_type, int vvc_instance_id);
+  std::optional<uint8_t> TransmitQueueGet(std::string vvc_type, int vvc_instance_id);
 
-  void ReceiveQueuePut(std::string vvc_type, int vvc_instance_id, uint8_t byte, bool end_of_packet=false);
+  void ReceiveQueuePut(std::string vvc_type, int vvc_instance_id, uint8_t byte);
 
 };
   
+} // namespace uvvm_cosim
+

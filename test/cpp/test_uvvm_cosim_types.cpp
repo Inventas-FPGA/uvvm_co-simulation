@@ -4,6 +4,8 @@
 #include "nlohmann/json.hpp"
 #include "uvvm_cosim_types.hpp"
 
+using namespace uvvm_cosim;
+
 // Some VVC examples placed in the order we expect VvcCompare to sort them
 std::vector<VvcInstanceKey> vk = {
     VvcInstanceKey{"AXISTREAM_VVC", "NA", 1},

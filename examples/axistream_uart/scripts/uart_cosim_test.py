@@ -49,8 +49,8 @@ def main():
                                args=None,
                                kwargs={"vvc_type": "AXISTREAM_VVC",
                                        "vvc_id": 1,
-                                       "length": 4,
-                                       "all_or_nothing": False},
+                                       "num_bytes": 4,
+                                       "exact_length": False},
                                one_way=False)
     print(f"response = {response}")
 
@@ -73,8 +73,8 @@ def main():
                                args=None,
                                kwargs={"vvc_type": "UART_VVC",
                                        "vvc_id": 0,
-                                       "length": 7,
-                                       "all_or_nothing": False},
+                                       "num_bytes": 7,
+                                       "exact_length": False},
                                one_way=False)
     print(f"response = {response}")
 
@@ -121,8 +121,8 @@ def main():
                                        args=None,
                                        kwargs={"vvc_type": "AXISTREAM_VVC",
                                                "vvc_id": 1,
-                                               "length": NUM_BYTES,
-                                               "all_or_nothing": True},
+                                               "num_bytes": NUM_BYTES,
+                                               "exact_length": True},
                                        one_way=False)
 
             if response["success"] and len(response["result"]["data"]) > 0:
@@ -133,8 +133,8 @@ def main():
                                        args=None,
                                        kwargs={"vvc_type": "UART_VVC",
                                                "vvc_id": 0,
-                                               "length": NUM_BYTES,
-                                               "all_or_nothing": True},
+                                               "num_bytes": NUM_BYTES,
+                                               "exact_length": True},
                                        one_way=False)
 
             if response["success"] and len(response["result"]["data"]) > 0:

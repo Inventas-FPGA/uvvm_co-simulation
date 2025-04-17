@@ -116,7 +116,7 @@ cmake .. -DENABLE_UNIT_TESTS=On -DENABLE_COVERAGE=On
 make
 ```
 
-At the moment there is only one unit that can be ran from the build folder like this:
+To run all unit tests, execute `make tests`. Or, to run a unit test directly (there is only one at the moment), from the build folder run:
 ```
 test/cpp/test_uvvm_cosim_types
 ```
@@ -235,7 +235,7 @@ TODO:
 ## Transmit and receive bytes
 
 `TransmitBytes(VVC_TYPE, VVC_ID, [bytes])`
-`ReceiveBytes(VVC_TYPE, VVC_ID, num_bytes, all_or_nothing)`
+`ReceiveBytes(VVC_TYPE, VVC_ID, num_bytes, exact_length)`
 
 Supported VVCs:
 

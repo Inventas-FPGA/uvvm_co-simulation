@@ -34,7 +34,7 @@ package body uvvm_cosim_foreign_pkg is
     return 0;
   end;
 
-  impure function uvvm_cosim_foreign_transmit_queue_empty(
+  impure function uvvm_cosim_foreign_transmit_byte_queue_empty(
     constant vvc_type        : in string;
     constant vvc_instance_id : in integer) return integer is
   begin
@@ -42,7 +42,7 @@ package body uvvm_cosim_foreign_pkg is
     return 0;
   end function;
 
-  impure function uvvm_cosim_foreign_transmit_queue_get(
+  impure function uvvm_cosim_foreign_transmit_byte_queue_get(
     constant vvc_type        : in string;
     constant vvc_instance_id : in integer) return integer is
   begin
@@ -50,11 +50,10 @@ package body uvvm_cosim_foreign_pkg is
     return 0;
   end function;
 
-  procedure uvvm_cosim_foreign_receive_queue_put(
+  procedure uvvm_cosim_foreign_receive_byte_queue_put(
     constant vvc_type        : in string;
     constant vvc_instance_id : in integer;
-    constant byte            : in integer;
-    constant end_of_packet   : in integer
+    constant byte            : in integer
     ) is
   begin
     report "Error: Should use foreign implementation" severity failure;

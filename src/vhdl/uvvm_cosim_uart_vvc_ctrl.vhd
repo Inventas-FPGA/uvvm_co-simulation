@@ -53,13 +53,13 @@ begin
       wait until rising_edge(clk);
 
       -- Schedule VVC transmit commands
-      while uvvm_cosim_foreign_transmit_queue_empty("UART_VVC", GC_VVC_IDX) = 0 loop
+      while uvvm_cosim_foreign_transmit_byte_queue_empty("UART_VVC", GC_VVC_IDX) = 0 loop
 
         if vvc_status.pending_cmd_cnt >= C_CMD_QUEUE_COUNT_THRESHOLD then
           exit;
         end if;
 
-        v_data := std_logic_vector(to_unsigned(uvvm_cosim_foreign_transmit_queue_get(C_VVC_TYPE, GC_VVC_IDX), v_data'length));
+        v_data := std_logic_vector(to_unsigned(uvvm_cosim_foreign_transmit_byte_queue_get(C_VVC_TYPE, GC_VVC_IDX), v_data'length));
 
         log(ID_SEQUENCER, "Got byte to transmit: " & to_string(v_data, HEX), C_SCOPE);
 
@@ -68,7 +68,7 @@ begin
         -- like we do for the AXI-Stream VVC
         uart_transmit(UART_VVCT, GC_VVC_IDX, TX, v_data, "Transmit from uvvm_cosim_uart_vvc_ctrl");
 
-        if uvvm_cosim_foreign_transmit_queue_empty(C_VVC_TYPE, GC_VVC_IDX) = 1 then
+        if uvvm_cosim_foreign_transmit_byte_queue_empty(C_VVC_TYPE, GC_VVC_IDX) = 1 then
           log(ID_SEQUENCER, "Transmit queue now empty for VVC index " & to_string(GC_VVC_IDX), C_SCOPE);
         end if;
 
@@ -149,12 +149,9 @@ begin
           else
             log(ID_SEQUENCER, "UART RX VVC " & to_string(GC_VVC_IDX) & ": Transaction completed. Data: " & to_string(v_result_data, HEX), C_SCOPE);
 
-            -- Last argument is end of packet flag which is not used
-            -- for UART (so it's always false)
-            uvvm_cosim_foreign_receive_queue_put(C_VVC_TYPE, GC_VVC_IDX,
-                                                 to_integer(unsigned(v_result_data)),
-                                                 0 -- end_of_packet=false (not used)
-                                                 );
+            uvvm_cosim_foreign_receive_byte_queue_put(C_VVC_TYPE, GC_VVC_IDX,
+                                                      to_integer(unsigned(v_result_data))
+                                                      );
           end if;
 
           v_start_new_transaction := true;

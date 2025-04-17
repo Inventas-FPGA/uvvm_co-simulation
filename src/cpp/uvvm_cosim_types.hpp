@@ -3,11 +3,15 @@
 #include <map>
 #include <string>
 #include "nlohmann/json.hpp"
+#include "byte_queue.hpp"
+#include "packet_queue.hpp"
 
 // Todo: Use namespace
-//namespace uvvm_cosim {
+namespace uvvm_cosim {
 
 using json = nlohmann::json;
+
+enum QueueId { QID_TRANSMIT, QID_RECEIVE, QID_MAX};
 
 // Used as key in std::map of all VVCs in server
 struct VvcInstanceKey {
@@ -16,18 +20,29 @@ struct VvcInstanceKey {
   int vvc_instance_id;
 };
 
+inline std::string to_string(const VvcInstanceKey& vvc)
+{
+  return "type=" + vvc.vvc_type +
+         ", channel=" + vvc.vvc_channel +
+         ", instance_id=" + std::to_string(vvc.vvc_instance_id);
+}
+
 struct VvcConfig {
   std::map<std::string, int> bfm_cfg;
   bool listen_enable = false;
+  bool cosim_support;
+  bool packet_based;
 };
 
 // Used as value in std::map of all VVCs in server
 struct VvcInstanceData {
   VvcConfig cfg;
 
-  // Note: Many VVCs will only use one of the queues
-  std::deque<std::pair<uint8_t, bool>> transmit_queue;
-  std::deque<std::pair<uint8_t, bool>> receive_queue;
+  // Used only for VVCs that are not packet-based
+  std::array<ByteQueue, QID_MAX> byte_queues;
+
+  // Used only for VVCs that are packet-based
+  std::array<PacketQueue, QID_MAX> packet_queues;
 };
 
 // This struct contains all fields that identify a VVC as well as
@@ -85,4 +100,4 @@ inline void from_json(const json &j, JsonResponse &response) {
   j.at("result").get_to(response.result);
 }
 
-//}; // namespace uvvm_cosim
+}; // namespace uvvm_cosim
