@@ -52,12 +52,14 @@ jobs:
 
       - name: 'Build unit tests'
         run: |
+          cmake --build build --config Debug --target test_byte_queue
           cmake --build build --config Debug --target test_uvvm_cosim_types
+          cmake --build build --config Debug --target test_uvvm_cosim_data
 
       - name: 'Run unit tests'
         working-directory: ./build/test/cpp
         run: |
-          ./test_uvvm_cosim_types
+          ctest --output-on-failure
 
       - name: generate coverage
         working-directory: ./build
