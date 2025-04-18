@@ -43,8 +43,8 @@ def main():
                                args=None,
                                kwargs={"vvc_type": "UART_VVC",
                                        "vvc_id": 1,
-                                       "length": 4,
-                                       "all_or_nothing": False},
+                                       "num_bytes": 4,
+                                       "exact_length": False},
                                one_way=False)
     print(f"response = {response}")
 

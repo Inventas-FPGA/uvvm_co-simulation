@@ -18,7 +18,7 @@ extern "C" {
 
 static void start_of_sim_cb(const vhpiCbDataT * cb_data)
 {
-  uvvm_cosim_start_of_sim();
+  uvvm_cosim::start_of_sim();
 }
 
 static void end_of_sim_cb(const vhpiCbDataT * cb_data) {
@@ -27,7 +27,7 @@ static void end_of_sim_cb(const vhpiCbDataT * cb_data) {
 
   vhpi_get_time(&t, &cycles);
 
-  uvvm_cosim_end_of_sim(cycles, convert_time_to_ns(&t));
+  uvvm_cosim::end_of_sim(cycles, convert_time_to_ns(&t));
 }
 
 
@@ -37,44 +37,43 @@ static void end_of_sim_cb(const vhpiCbDataT * cb_data) {
 
 static void uvvm_cosim_foreign_start_sim(const vhpiCbDataT* p_cb_data)
 {
-  uvvm_cosim_start_sim();
+  uvvm_cosim::start_sim();
 }
 
 static void uvvm_cosim_foreign_terminate_sim(const vhpiCbDataT* p_cb_data)
 {
-  bool terminate = uvvm_cosim_terminate_sim();
+  bool terminate = uvvm_cosim::terminate_sim();
 
   return_vhpi_int(p_cb_data, terminate ? 1 : 0);
 }
 
-static void uvvm_cosim_foreign_transmit_queue_empty(const vhpiCbDataT* p_cb_data)
+static void uvvm_cosim_foreign_transmit_byte_queue_empty(const vhpiCbDataT* p_cb_data)
 {
   std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
   int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
 
-  bool empty = uvvm_cosim_transmit_queue_empty(vvc_type, vvc_instance_id);
+  bool empty = uvvm_cosim::transmit_byte_queue_empty(vvc_type, vvc_instance_id);
 
   return_vhpi_int(p_cb_data, empty ? 1 : 0);
 }
 
-void uvvm_cosim_foreign_transmit_queue_get(const vhpiCbDataT* p_cb_data)
+void uvvm_cosim_foreign_transmit_byte_queue_get(const vhpiCbDataT* p_cb_data)
 {
   std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
   int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
 
-  int data = uvvm_cosim_transmit_queue_get(vvc_type, vvc_instance_id);
+  int data = uvvm_cosim::transmit_byte_queue_get(vvc_type, vvc_instance_id);
 
   return_vhpi_int(p_cb_data, data);
 }
 
-void uvvm_cosim_foreign_receive_queue_put(const vhpiCbDataT* p_cb_data)
+void uvvm_cosim_foreign_receive_byte_queue_put(const vhpiCbDataT* p_cb_data)
 {
   std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
   int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
   uint8_t byte         = get_vhpi_int_param_by_index(p_cb_data, 2);
-  bool end_of_packet   = get_vhpi_int_param_by_index(p_cb_data, 3) == 1;
 
-  uvvm_cosim_receive_queue_put(vvc_type, vvc_instance_id, byte, end_of_packet);
+  uvvm_cosim::receive_byte_queue_put(vvc_type, vvc_instance_id, byte);
 }
 
 void uvvm_cosim_foreign_vvc_listen_enable(const vhpiCbDataT* p_cb_data)
@@ -82,7 +81,7 @@ void uvvm_cosim_foreign_vvc_listen_enable(const vhpiCbDataT* p_cb_data)
   std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
   int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
 
-  bool listen          = uvvm_cosim_vvc_listen_enable(vvc_type, vvc_instance_id);
+  bool listen          = uvvm_cosim::vvc_listen_enable(vvc_type, vvc_instance_id);
 
   return_vhpi_int(p_cb_data, listen ? 1 : 0);
 }
@@ -94,7 +93,7 @@ void uvvm_cosim_foreign_report_vvc_info(const vhpiCbDataT* p_cb_data)
   int vvc_instance_id     = get_vhpi_int_param_by_index(p_cb_data, 2);
   std::string bfm_cfg_str = get_vhpi_str_param_by_index(p_cb_data, 3);
 
-  uvvm_cosim_report_vvc_info(vvc_type, vvc_channel, vvc_instance_id, bfm_cfg_str);
+  uvvm_cosim::report_vvc_info(vvc_type, vvc_channel, vvc_instance_id, bfm_cfg_str);
 }
 
 static void register_foreign_methods(void)
@@ -123,18 +122,18 @@ static void register_foreign_methods(void)
 			       c_lib_name,
 			       vhpiFuncF);
 
-  register_vhpi_foreign_method(uvvm_cosim_foreign_transmit_queue_empty,
-			       "uvvm_cosim_foreign_transmit_queue_empty",
+  register_vhpi_foreign_method(uvvm_cosim_foreign_transmit_byte_queue_empty,
+			       "uvvm_cosim_foreign_transmit_byte_queue_empty",
 			       c_lib_name,
 			       vhpiFuncF);
 
-  register_vhpi_foreign_method(uvvm_cosim_foreign_transmit_queue_get,
-			       "uvvm_cosim_foreign_transmit_queue_get",
+  register_vhpi_foreign_method(uvvm_cosim_foreign_transmit_byte_queue_get,
+			       "uvvm_cosim_foreign_transmit_byte_queue_get",
 			       c_lib_name,
 			       vhpiFuncF);
 
-  register_vhpi_foreign_method(uvvm_cosim_foreign_receive_queue_put,
-			       "uvvm_cosim_foreign_receive_queue_put",
+  register_vhpi_foreign_method(uvvm_cosim_foreign_receive_byte_queue_put,
+			       "uvvm_cosim_foreign_receive_byte_queue_put",
 			       c_lib_name,
 			       vhpiProcF);
 

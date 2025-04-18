@@ -65,7 +65,7 @@ begin
       v_byte_idx := 0;
 
       -- Fetch bytes from cosim transmit queue
-      while uvvm_cosim_foreign_transmit_queue_empty(C_VVC_TYPE, GC_VVC_IDX) = 0 loop
+      while uvvm_cosim_foreign_transmit_byte_queue_empty(C_VVC_TYPE, GC_VVC_IDX) = 0 loop
 
         if vvc_status.pending_cmd_cnt >= C_CMD_QUEUE_MAX then
           -- Prevent command queue from overflowing (causes UVVM sim error)
@@ -80,13 +80,14 @@ begin
         end if;
 
         -- TODO:
-        -- For packet based transmit collect data in an slv_array buffer
+        -- For packet based transmit use transmit_pkt_queue_get function (not
+        -- implemented yet) and collect data in an slv_array buffer
         -- until the 9th bit in v_data (end of packet) is set.
-        v_data(v_byte_idx) := std_logic_vector(to_unsigned(uvvm_cosim_foreign_transmit_queue_get(C_VVC_TYPE, GC_VVC_IDX), v_data(0)'length));
+        v_data(v_byte_idx) := std_logic_vector(to_unsigned(uvvm_cosim_foreign_transmit_byte_queue_get(C_VVC_TYPE, GC_VVC_IDX), v_data(0)'length));
 
         v_byte_idx := v_byte_idx + 1;
 
-        if uvvm_cosim_foreign_transmit_queue_empty(C_VVC_TYPE, GC_VVC_IDX) = 1 then
+        if uvvm_cosim_foreign_transmit_byte_queue_empty(C_VVC_TYPE, GC_VVC_IDX) = 1 then
           log(ID_SEQUENCER, "Transmit queue now empty for VVC index " & to_string(GC_VVC_IDX), C_SCOPE);
         end if;
 
@@ -174,13 +175,12 @@ begin
             log(ID_SEQUENCER, "AXISTREAM VVC " & to_string(GC_VVC_IDX) & ": Transaction completed. Data: " & to_string(v_result_data.data_array(0 to v_result_data.data_length-1), HEX), C_SCOPE);
 
             for byte_num in 0 to v_result_data.data_length-1 loop
-              uvvm_cosim_foreign_receive_queue_put(C_VVC_TYPE, GC_VVC_IDX,
-                                                   to_integer(unsigned(v_result_data.data_array(byte_num))),
-                                                   0 -- end_of_packet=false (not used)
-                                                   );
+              uvvm_cosim_foreign_receive_byte_queue_put(C_VVC_TYPE, GC_VVC_IDX,
+                                                        to_integer(unsigned(v_result_data.data_array(byte_num)))
+                                                        );
             -- TODO:
             -- For packet based receive set the 9th bith (end of packet) in the
-            -- integer argument to uvvm_cosim_foreign_receive_queue_put on the last byte.
+            -- integer argument to uvvm_cosim_foreign_receive_pkt_queue_put on the last byte.
             end loop;
 
           end if;

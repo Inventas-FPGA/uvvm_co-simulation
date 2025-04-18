@@ -6,6 +6,7 @@
 #include <jsonrpccxx/iclientconnector.hpp>
 #include "uvvm_cosim_types.hpp"
 
+namespace uvvm_cosim {
 
 class UvvmCosimClient : private jsonrpccxx::JsonRpcClient {
   int requestId = 0;
@@ -45,9 +46,9 @@ public:
   // {
   // }
 
-  JsonResponse ReceiveBytes(std::string vvc_type, int vvc_id, int length, bool all_or_nothing)
+  JsonResponse ReceiveBytes(std::string vvc_type, int vvc_id, int num_bytes, bool exact_length)
   {
-    return CallMethod<JsonResponse>(requestId++, "ReceiveBytes", {vvc_type, vvc_id, length, all_or_nothing});
+    return CallMethod<JsonResponse>(requestId++, "ReceiveBytes", {vvc_type, vvc_id, num_bytes, exact_length});
   }
 
   // JsonResponse ReceivePacket(std::string vvc_type, int vvc_id);
@@ -55,3 +56,5 @@ public:
   // }
 
 };
+
+} // namespace uvvm_cosim

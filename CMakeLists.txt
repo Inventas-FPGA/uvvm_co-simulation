@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake/modules)
 
 project(uvvm_cosim VERSION 0.0.1 DESCRIPTION "UVVM Co-simulation library and JSON-RPC server")
 
@@ -17,6 +17,7 @@ set(VSIM_PATH "/opt/intelFPGA_pro/24.3.1/questa_fse")
 # Cosim library target for VHPI
 ###############################################################################
 add_library(uvvm_cosim_vhpi SHARED
+            src/cpp/uvvm_cosim_data.cpp
             src/cpp/uvvm_cosim_server.cpp
 	    src/cpp/uvvm_cosim_common.cpp
             src/cpp/uvvm_cosim_foreign_vhpi.cpp)
@@ -29,6 +30,7 @@ set_property(TARGET uvvm_cosim_vhpi PROPERTY POSITION_INDEPENDENT_CODE ON)
 # Cosim library target for FLI
 ###############################################################################
 add_library(uvvm_cosim_fli SHARED
+            src/cpp/uvvm_cosim_data.cpp
             src/cpp/uvvm_cosim_server.cpp
 	    src/cpp/uvvm_cosim_common.cpp
             src/cpp/uvvm_cosim_foreign_fli.cpp)
@@ -91,23 +93,12 @@ option(ENABLE_COVERAGE "Enable code coverage for unit tests" OFF)
 
 # Add unit test target and coverage targets (when enabled)
 if(ENABLE_UNIT_TESTS)
-  if(ENABLE_COVERAGE)
-    include(coverage)
-    set(COVERAGE_INCLUDE_DIRS
-      "${CMAKE_SOURCE_DIR}/src/cpp/*"
-    )
-    add_coverage_target(${COVERAGE_INCLUDE_DIRS})
+  if (ENABLE_COVERAGE)
+    include(CodeCoverage)
+    append_coverage_compiler_flags_to_target(uvvm_cosim_vhpi)
+    append_coverage_compiler_flags_to_target(uvvm_cosim_fli)
   endif()
 
   enable_testing()
   add_subdirectory(test/cpp)
 endif()
-
-# Note: Run "make clean-gcov" to remove gcov .gcno and .gcda files.
-# Haven't found a way to setup ADDITIONAL_CLEAN_FILES to cleanup all
-# .gcno and .gcda files by running make clean.
-add_custom_target(clean-gcov
-    COMMAND find ${CMAKE_BINARY_DIR} -name "*.gcda" -delete
-    COMMAND find ${CMAKE_BINARY_DIR} -name "*.gcno" -delete
-    COMMENT "Cleaning gcov build and coverage files..."
-)

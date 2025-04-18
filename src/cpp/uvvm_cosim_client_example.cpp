@@ -8,6 +8,8 @@
 #include "uvvm_cosim_client.hpp"
 #include "uvvm_cosim_types.hpp"
 
+using namespace uvvm_cosim;
+
 void print_received_data(const std::vector<uint8_t>& data)
 {
   std::cout << "data = [";
@@ -182,4 +184,7 @@ int main(int argc, char** argv)
   client.TerminateSim();
 
   std::cout << "DONE." << std::endl;
+
+  return 0;
 }
+

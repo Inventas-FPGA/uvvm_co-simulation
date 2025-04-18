@@ -2,21 +2,24 @@
 
 This library aims to make it easy to setup basic co-simulation for UVVM testbench, by enabling communication with your simulated DUT using VVCs instances in your testbench. Very few changes are required to integrate this with an existing testbench.
 
-It uses VHPI to start a JSON-RPC server in a dedicated thread. From a JSON-RPC client, accessed from your application, you can:
+It uses either the standard VHDL VHPI or Modelsim/Questasim FLI, to start a JSON-RPC server in a dedicated thread. From a JSON-RPC client, accessed from your application, you can:
 - Get a list of available VVCs in the simulation
 - Transmit and receive data to any supported VVC
 
 The server maintains a set of queues, one for transmit and one for receive, for each VVC in the simulation. Transmit data sent from the client is put in a transmit queue by the server. And when the client makes a request for received data, the server responds with data that is available in the receive queue.
-On the VHDL side, an entity called `uvvm_cosim` uses VHPI foreign function/procedure calls to access the same queues and basically forwards this to and from the VVCs using their transmit and receive procedures.
+On the VHDL side, an entity called `uvvm_cosim` uses foreign function/procedure calls to access the same queues and basically forwards this to and from the VVCs using their transmit and receive procedures.
 
-The VHPI code and JSON-RPC server is written in C++ and there is a basic C++ client as well. But there is also example client code for Python, and the protocol is very simple and should be easy to implement in a custom client.
+The VHPI/FLI code and JSON-RPC server is written in C++ and there is a basic C++ client as well. But there is also example client code for Python, and the protocol is very simple and should be easy to implement in a custom client.
 
 ## Simulator support
 
-It has only been tested with NVC at the moment, but it may work with other simulators that support VHPI. Older commits of NVC than [3b81846](https://github.com/nickg/nvc/commit/3b81846) may not work.
+Currently there is support for:
+- Modelsim/Questasim using FLI
+- NVC using VHPI
 
-For reference, this is likely because local variables are used for `libraryName` and `modelName` when registering foreign functions in `register_vhpi_foreign_method` in `uvvm_cosim_utils.hpp`.
+It may also work with other simulators that support VHPI, but has only been tested with NVC at the moment. And note that older commits of NVC than [3b81846](https://github.com/nickg/nvc/commit/3b81846) may not work, so you need a recent version of NVC.
 
+Build of the FLI version of the library is also disabled by default since that requires the proprietary `mti.h` header supplied with Modelsim/Questasim. These headers may be added to the project since they are apparently distributed with a license that allows redistribution. More info on building with FLI support below.
 
 ## Integration in an existing testbench
 
@@ -91,12 +94,34 @@ cmake ..
 make
 ```
 
-If you want to run the testbench in this repo, you need to have initialized the hdlregression uvvm submodules, **and you will need nvc in your PATH**.
+This will build the VHPI version of the library, `libuvvm_cosim_vhpi.so`, and `uvvm_cosim_example_client` which can be used to run an example testbench (more below).
 
-To start the simulation and JSON-RPC co-sim server:
+**Building Modelsim/Questasim FLI library**
+
+To build the FLI version of the library you must enable the `BUILD_VSIM_FLI` option when running CMake, e.g.:
 ```
-make hdl_run
+cmake .. -DBUILD_VSIM_FLI=ON
 ```
+
+That should build `libuvvm_cosim_fli.so` in addition to the VHPI version of the library.
+
+
+### Example testbench
+
+There is a very basic example of a testbench, `test/cosim_testbench.vhd`, which sets up two UART VVCs and two AXI-Stream VVCs back to back. The example client can be used to communicate with these.
+Note that if you want to run the testbench in this repo, you need to have initialized the hdlregression uvvm submodules, **and you will need nvc in your PATH**.
+
+To build the example testbench using NVC:
+```
+make hdl_build_nvc
+```
+
+To start the simulation and JSON-RPC co-sim server using NVC:
+```
+make hdl_sim_nvc
+```
+
+Or, using Modelsim or Questasim, the testbench can be built and run using either the `hdl_sim_vsim` target or `hdl_sim_vsim_gui` target if you want to run in GUI mode.
 
 While the simulation is running and the server is listening, you can test the example client by running (also from the build directory):
 ```
@@ -105,9 +130,10 @@ While the simulation is running and the server is listening, you can test the ex
 
 There are also two example clients for Python under `src/python`. One using the `requests` library and another using `tinyrpc-lib`.
 
+
 ### Unit tests
 
-To build unit tests set the `ENABLE_UNIT_TESTS` switch when running cmake and optionally `ENABLE_COVERAGE` to generate coverage info.
+To build unit tests for the C++ code set the `ENABLE_UNIT_TESTS` switch when running cmake and optionally `ENABLE_COVERAGE` to generate coverage info.
 
 ```
 mkdir build
@@ -116,12 +142,14 @@ cmake .. -DENABLE_UNIT_TESTS=On -DENABLE_COVERAGE=On
 make
 ```
 
-At the moment there is only one unit that can be ran from the build folder like this:
+To run all unit tests, execute `make test` or run `ctest`. Or, to run a unit test directly (there is only one at the moment), from the build folder run:
 ```
 test/cpp/test_uvvm_cosim_types
 ```
 
-To generate coverage results, run `make cov` (also generates html report under coverage/index.html).
+To generate coverage results (requires `ENABLE_COVERAGE` option), run `make cov`. This will generate an html report of unit test coverage under `cov/index.html`.
+
+**Note that coverage requires `gcov` and `lcov`.**
 
 
 # JSON-RPC protocol
@@ -235,7 +263,7 @@ TODO:
 ## Transmit and receive bytes
 
 `TransmitBytes(VVC_TYPE, VVC_ID, [bytes])`
-`ReceiveBytes(VVC_TYPE, VVC_ID, num_bytes, all_or_nothing)`
+`ReceiveBytes(VVC_TYPE, VVC_ID, num_bytes, exact_length)`
 
 Supported VVCs:
 
