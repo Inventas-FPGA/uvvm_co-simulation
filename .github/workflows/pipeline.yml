@@ -37,7 +37,7 @@ jobs:
           ./autogen.sh
           mkdir build && cd build
           ../configure --prefix=/opt/nvc
-          make
+          make -j$(nproc)
           sudo make install
           echo "/opt/nvc/bin" >> "$GITHUB_PATH"
 
@@ -50,14 +50,13 @@ jobs:
         run: |
           cmake -H. -Bbuild -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DENABLE_UNIT_TESTS=On -DENABLE_COVERAGE=On
 
-      - name: 'Build unit tests'
+      - name: 'Build all'
+        working-directory: ./build
         run: |
-          cmake --build build --config Debug --target test_byte_queue
-          cmake --build build --config Debug --target test_uvvm_cosim_types
-          cmake --build build --config Debug --target test_uvvm_cosim_data
+          make -j$(nproc)
 
       - name: 'Run unit tests'
-        working-directory: ./build/test/cpp
+        working-directory: ./build
         run: |
           ctest --output-on-failure
 
@@ -88,10 +87,7 @@ jobs:
 #        uses: codecov/codecov-action@eaaf4bedf32dbdc6b720b63067d99c4d77d6047d # v3
 #        env:
 #          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      - name: 'Build co-sim library and example client'
-        working-directory: ./build
-        run: |
-          make
+
 
       - name: 'Build HDL simulation with NVC'
         working-directory: ./build
