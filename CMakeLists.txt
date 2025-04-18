@@ -17,6 +17,7 @@ set(VSIM_PATH "/opt/intelFPGA_pro/24.3.1/questa_fse")
 # Cosim library target for VHPI
 ###############################################################################
 add_library(uvvm_cosim_vhpi SHARED
+            src/cpp/uvvm_cosim_data.cpp
             src/cpp/uvvm_cosim_server.cpp
 	    src/cpp/uvvm_cosim_common.cpp
             src/cpp/uvvm_cosim_foreign_vhpi.cpp)
@@ -29,6 +30,7 @@ set_property(TARGET uvvm_cosim_vhpi PROPERTY POSITION_INDEPENDENT_CODE ON)
 # Cosim library target for FLI
 ###############################################################################
 add_library(uvvm_cosim_fli SHARED
+            src/cpp/uvvm_cosim_data.cpp
             src/cpp/uvvm_cosim_server.cpp
 	    src/cpp/uvvm_cosim_common.cpp
             src/cpp/uvvm_cosim_foreign_fli.cpp)
