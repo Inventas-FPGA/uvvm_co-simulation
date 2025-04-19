@@ -13,6 +13,13 @@ target_include_directories(test_byte_queue PUBLIC
   "${PROJECT_SOURCE_DIR}/thirdparty/json-rpc-cxx/vendor"
 )
 
+add_executable(test_packet_queue test_packet_queue.cpp)
+target_link_libraries(test_packet_queue PRIVATE Catch2::Catch2WithMain)
+target_include_directories(test_packet_queue PUBLIC
+  "${PROJECT_SOURCE_DIR}/src/cpp"
+  "${PROJECT_SOURCE_DIR}/thirdparty/json-rpc-cxx/vendor"
+)
+
 add_executable(test_uvvm_cosim_data test_uvvm_cosim_data.cpp ${PROJECT_SOURCE_DIR}/src/cpp/uvvm_cosim_data.cpp)
 target_link_libraries(test_uvvm_cosim_data PRIVATE Catch2::Catch2WithMain)
 target_include_directories(test_uvvm_cosim_data PUBLIC
@@ -30,6 +37,7 @@ target_include_directories(test_uvvm_cosim_types PUBLIC
 include(Catch)
 set(CMAKE_CATCH_DISCOVER_TESTS_DISCOVERY_MODE PRE_TEST)
 catch_discover_tests(test_byte_queue)
+catch_discover_tests(test_packet_queue)
 catch_discover_tests(test_uvvm_cosim_data)
 catch_discover_tests(test_uvvm_cosim_types)
 
@@ -42,6 +50,7 @@ if (ENABLE_COVERAGE)
 				 EXCLUDE "/usr/include/*" "${PROJECT_SOURCE_DIR}/thirdparty/*" "${CMAKE_BINARY_DIR}/_deps/*")
 
   append_coverage_compiler_flags_to_target(test_byte_queue)
+  append_coverage_compiler_flags_to_target(test_packet_queue)
   append_coverage_compiler_flags_to_target(test_uvvm_cosim_data)
   append_coverage_compiler_flags_to_target(test_uvvm_cosim_types)
 

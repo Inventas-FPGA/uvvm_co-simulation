@@ -13,6 +13,9 @@ namespace uvvm_cosim {
   auto UvvmCosimData::get_byte_queue(VvcMapInternal& vvc_map, VvcInstanceKey vvc, QueueId qid) -> ByteQueue&
   {
     if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
+      if (it->second.cfg.packet_based) {
+	throw std::runtime_error("Tried to access byte queue for packet-based VVC " + to_string(vvc) + ".");
+      }
       return it->second.byte_queues[qid];
     } else {
       throw std::runtime_error("VVC " + to_string(vvc) + " does not exist.");
@@ -58,6 +61,9 @@ namespace uvvm_cosim {
   auto UvvmCosimData::get_packet_queue(VvcMapInternal& vvc_map, VvcInstanceKey vvc, QueueId qid) -> PacketQueue&
   {
     if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
+      if (!it->second.cfg.packet_based) {
+	throw std::runtime_error("Tried to access packet queue for non-packet based VVC " + to_string(vvc) + ".");
+      }
       return it->second.packet_queues[qid];
     } else {
       throw std::runtime_error("VVC " + to_string(vvc) + " does not exist.");
@@ -74,7 +80,7 @@ namespace uvvm_cosim {
     return get_packet_queue(vvc_map, vvc, qid).size();
   }
 
-  auto UvvmCosimData::packet_queue_get_byte(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc) -> std::optional<uint8_t>
+  auto UvvmCosimData::packet_queue_get_byte(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc) -> std::optional<std::pair<uint8_t, bool>>
   {
     return get_packet_queue(vvc_map, vvc, qid).get_byte();
   }
@@ -99,9 +105,23 @@ namespace uvvm_cosim {
   /////////////////////////////////////////////////////////////////////////////
 
   void UvvmCosimData::AddVvc(VvcInstanceKey vvc, std::map<std::string, int> bfm_cfg) {
+    VvcConfig cfg;
+
+    if (auto it = bfm_cfg.find("cosim_support"); it != bfm_cfg.end()) {
+      cfg.cosim_support = it->second == 0 ? false : true;
+      bfm_cfg.erase(it);
+    }
+
+    if (auto it = bfm_cfg.find("packet_based"); it != bfm_cfg.end()) {
+      cfg.packet_based = it->second == 0 ? false : true;
+      bfm_cfg.erase(it);
+    }
+
+    cfg.bfm_cfg = bfm_cfg;
+
     vvcInstanceMap([&](auto &vvc_map) {
       if (vvc_map.find(vvc) == vvc_map.end()) {
-        vvc_map.emplace(vvc, VvcInstanceData{.cfg{.bfm_cfg = bfm_cfg}});
+        vvc_map.emplace(vvc, VvcInstanceData{.cfg = cfg});
       } else {
         throw std::runtime_error("VVC " + to_string(vvc) + " exists already.");
       }
@@ -190,7 +210,7 @@ namespace uvvm_cosim {
     return vvcInstanceMap([&](auto &vvc_map) {return packet_queue_size(vvc_map, qid, vvc);});
   }
 
-  auto UvvmCosimData::packet_queue_get_byte(QueueId qid, VvcInstanceKey vvc) -> std::optional<uint8_t>
+  auto UvvmCosimData::packet_queue_get_byte(QueueId qid, VvcInstanceKey vvc) -> std::optional<std::pair<uint8_t, bool>>
   {
     return vvcInstanceMap([&](auto &vvc_map) {return packet_queue_get_byte(vvc_map, qid, vvc);});
   }
