@@ -1,8 +1,10 @@
+# Short example of how the tinyrpc library can be
+# used to send requests to the cosim server.
+
 from tinyrpc.protocols.jsonrpc import JSONRPCProtocol
 from tinyrpc.transports.http import HttpPostClientTransport
 from tinyrpc import RPCClient
 import time
-
 
 def main():
     rpc_client = RPCClient(
