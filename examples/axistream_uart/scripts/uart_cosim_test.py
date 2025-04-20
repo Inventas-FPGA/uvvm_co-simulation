@@ -30,56 +30,6 @@ def main():
 
     time.sleep(1.0)
 
-    print("")
-    print("Transmit with UART VVC")
-    print("----------------------")
-    response = rpc_client.call(method="TransmitBytes", args=None,
-                               kwargs={"vvc_type": "UART_VVC",
-                                       "vvc_id": 0,
-                                       "data": [10, 20, 30, 40]},
-                               one_way=False)
-    print(f"response = {response}")
-
-    time.sleep(10.0)
-
-    print("")
-    print("Receive with AXISTREAM VVC")
-    print("----------------------")
-    response = rpc_client.call(method="ReceiveBytes",
-                               args=None,
-                               kwargs={"vvc_type": "AXISTREAM_VVC",
-                                       "vvc_id": 1,
-                                       "num_bytes": 4,
-                                       "exact_length": False},
-                               one_way=False)
-    print(f"response = {response}")
-
-    print("")
-    print("Transmit with AXISTREAM VVC")
-    print("----------------------")
-    response = rpc_client.call(method="TransmitBytes", args=None,
-                               kwargs={"vvc_type": "AXISTREAM_VVC",
-                                       "vvc_id": 0,
-                                       "data": [9, 8, 7, 4, 1, 3, 0]},
-                               one_way=False)
-    print(f"response = {response}")
-
-    time.sleep(10.0)
-
-    print("")
-    print("Receive with UART VVC")
-    print("----------------------")
-    response = rpc_client.call(method="ReceiveBytes",
-                               args=None,
-                               kwargs={"vvc_type": "UART_VVC",
-                                       "vvc_id": 0,
-                                       "num_bytes": 7,
-                                       "exact_length": False},
-                               one_way=False)
-    print(f"response = {response}")
-
-
-
     NUM_ITERATIONS = 10
     NUM_BYTES = 200
     TIMEOUT_SECONDS = 120
