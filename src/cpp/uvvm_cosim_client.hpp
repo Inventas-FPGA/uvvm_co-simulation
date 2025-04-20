@@ -42,18 +42,20 @@ public:
     return CallMethod<JsonResponse>(requestId++, "TransmitBytes", {vvc_type, vvc_id, data});
   }
 
-  // JsonResponse TransmitPacket(std::string vvc_type, int vvc_id, std::vector<uint8_t> data)
-  // {
-  // }
+  JsonResponse TransmitPacket(std::string vvc_type, int vvc_id, std::vector<uint8_t> pkt)
+  {
+    return CallMethod<JsonResponse>(requestId++, "TransmitPacket", {vvc_type, vvc_id, pkt});
+  }
 
   JsonResponse ReceiveBytes(std::string vvc_type, int vvc_id, int num_bytes, bool exact_length)
   {
     return CallMethod<JsonResponse>(requestId++, "ReceiveBytes", {vvc_type, vvc_id, num_bytes, exact_length});
   }
 
-  // JsonResponse ReceivePacket(std::string vvc_type, int vvc_id);
-  // {
-  // }
+  JsonResponse ReceivePacket(std::string vvc_type, int vvc_id)
+  {
+    return CallMethod<JsonResponse>(requestId++, "ReceivePacket", {vvc_type, vvc_id});
+  }
 
 };
 
