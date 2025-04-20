@@ -44,8 +44,9 @@ architecture tb of axistream_uart_uvvm_tb is
   --------------------------------------------------------------------------------
   -- Signal declarations
   --------------------------------------------------------------------------------
-  signal clk       : std_logic := '0';
-  signal arst      : std_logic := '0';
+  signal clk             : std_logic := '0';
+  signal arst            : std_logic := '0';
+  signal vvc_config_done : std_logic := '0';
 
 begin
 
@@ -59,7 +60,8 @@ begin
       GC_UART_VVC_IDX          => C_UART_VVC_IDX,
       GC_COSIM_ENABLE          => (GC_TESTCASE = "TC_COSIM"))
     port map (
-      arst => arst
+      arst            => arst,
+      vvc_config_done => vvc_config_done
       );
 
   ------------------------------------------------
@@ -141,6 +143,9 @@ begin
 
       -- No alert for timeout on AXI-S VVC used for receive
       shared_axistream_vvc_config(C_AXIS_VVC_RECEIVE_IDX).bfm_config.max_wait_cycles_severity := NO_ALERT;
+
+      -- Indicate to cosim module that VVC configuration is done
+      vvc_config_done <= '1';
 
       -- Start clock for cosim scheduler
       start_clock(CLOCK_GENERATOR_VVCT, 1, "Start cosim clock generator");

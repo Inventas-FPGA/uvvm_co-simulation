@@ -25,7 +25,8 @@ end entity tb;
 
 architecture sim of tb is
 
-  signal clk      : std_logic := '0';
+  signal clk             : std_logic := '0';
+  signal vvc_config_done : std_logic := '0';
 
   signal uart0_rx : std_logic;
   signal uart0_tx : std_logic := '1';
@@ -44,8 +45,13 @@ architecture sim of tb is
                                            tdest(0 downto 0)
                                            );
 
-  signal axistream_if_transmit : t_axistream_8b;
-  signal axistream_if_receive  : t_axistream_8b;
+  -- Interfaces used between non-packet based AXI-Stream VVCs
+  signal axistream_if_byte_transmit : t_axistream_8b;
+  signal axistream_if_byte_receive  : t_axistream_8b;
+
+  -- Interfaces used between packet based AXI-Stream VVCs
+  signal axistream_if_packet_transmit : t_axistream_8b;
+  signal axistream_if_packet_receive  : t_axistream_8b;
 
 begin
 
@@ -53,28 +59,46 @@ begin
   uart1_rx <= uart0_tx after 10 ns;
 
   -- Unused AXI-Stream signals
-  axistream_if_transmit.tkeep <= (others => '1');
-  axistream_if_transmit.tuser <= (others => '0');
-  axistream_if_transmit.tstrb <= (others => '0');
-  axistream_if_transmit.tid   <= (others => '0');
-  axistream_if_transmit.tdest <= (others => '0');
+  axistream_if_byte_transmit.tkeep <= (others => '1');
+  axistream_if_byte_transmit.tuser <= (others => '0');
+  axistream_if_byte_transmit.tstrb <= (others => '0');
+  axistream_if_byte_transmit.tid   <= (others => '0');
+  axistream_if_byte_transmit.tdest <= (others => '0');
 
-  axistream_if_receive.tkeep <= (others => '1');
-  axistream_if_receive.tuser <= (others => '0');
-  axistream_if_receive.tstrb <= (others => '0');
-  axistream_if_receive.tid   <= (others => '0');
-  axistream_if_receive.tdest <= (others => '0');
+  axistream_if_byte_receive.tkeep <= (others => '1');
+  axistream_if_byte_receive.tuser <= (others => '0');
+  axistream_if_byte_receive.tstrb <= (others => '0');
+  axistream_if_byte_receive.tid   <= (others => '0');
+  axistream_if_byte_receive.tdest <= (others => '0');
 
-  axistream_if_receive.tdata   <= axistream_if_transmit.tdata;
-  axistream_if_receive.tvalid  <= axistream_if_transmit.tvalid;
-  axistream_if_receive.tlast   <= axistream_if_transmit.tlast;
-  axistream_if_transmit.tready <= axistream_if_receive.tready;
+  axistream_if_byte_receive.tdata   <= axistream_if_byte_transmit.tdata;
+  axistream_if_byte_receive.tvalid  <= axistream_if_byte_transmit.tvalid;
+  axistream_if_byte_receive.tlast   <= axistream_if_byte_transmit.tlast;
+  axistream_if_byte_transmit.tready <= axistream_if_byte_receive.tready;
+
+  axistream_if_packet_transmit.tkeep <= (others => '1');
+  axistream_if_packet_transmit.tuser <= (others => '0');
+  axistream_if_packet_transmit.tstrb <= (others => '0');
+  axistream_if_packet_transmit.tid   <= (others => '0');
+  axistream_if_packet_transmit.tdest <= (others => '0');
+
+  axistream_if_packet_receive.tkeep <= (others => '1');
+  axistream_if_packet_receive.tuser <= (others => '0');
+  axistream_if_packet_receive.tstrb <= (others => '0');
+  axistream_if_packet_receive.tid   <= (others => '0');
+  axistream_if_packet_receive.tdest <= (others => '0');
+
+  axistream_if_packet_receive.tdata   <= axistream_if_packet_transmit.tdata;
+  axistream_if_packet_receive.tvalid  <= axistream_if_packet_transmit.tvalid;
+  axistream_if_packet_receive.tlast   <= axistream_if_packet_transmit.tlast;
+  axistream_if_packet_transmit.tready <= axistream_if_packet_receive.tready;
 
   inst_uvvm_cosim: entity uvvm_cosim_lib.uvvm_cosim
     generic map (
       GC_COSIM_EN => true)
     port map (
-      clk => clk);
+      clk             => clk,
+      vvc_config_done => vvc_config_done);
 
   inst_ti_uvvm_engine : entity uvvm_vvc_framework.ti_uvvm_engine;
 
@@ -105,7 +129,7 @@ begin
       uart_vvc_rx => uart1_rx,
       uart_vvc_tx => uart1_tx);
 
-  i_axistream_vvc0_transmit : entity bitvis_vip_axistream.axistream_vvc
+  i_axistream_vvc0_byte_transmit : entity bitvis_vip_axistream.axistream_vvc
     generic map (
       GC_VVC_IS_MASTER => true,
       GC_DATA_WIDTH    => 8,
@@ -116,10 +140,10 @@ begin
       )
     port map (
       clk              => clk,
-      axistream_vvc_if => axistream_if_transmit
+      axistream_vvc_if => axistream_if_byte_transmit
       );
 
-  i_axistream_vvc1_receive : entity bitvis_vip_axistream.axistream_vvc
+  i_axistream_vvc1_byte_receive : entity bitvis_vip_axistream.axistream_vvc
     generic map (
       GC_VVC_IS_MASTER => false,
       GC_DATA_WIDTH    => 8,
@@ -130,7 +154,35 @@ begin
       )
     port map (
       clk              => clk,
-      axistream_vvc_if => axistream_if_receive
+      axistream_vvc_if => axistream_if_byte_receive
+      );
+
+  i_axistream_vvc2_packet_transmit : entity bitvis_vip_axistream.axistream_vvc
+    generic map (
+      GC_VVC_IS_MASTER => true,
+      GC_DATA_WIDTH    => 8,
+      GC_USER_WIDTH    => 1,
+      GC_ID_WIDTH      => 1,
+      GC_DEST_WIDTH    => 1,
+      GC_INSTANCE_IDX  => 2
+      )
+    port map (
+      clk              => clk,
+      axistream_vvc_if => axistream_if_packet_transmit
+      );
+
+  i_axistream_vvc3_packet_receive : entity bitvis_vip_axistream.axistream_vvc
+    generic map (
+      GC_VVC_IS_MASTER => false,
+      GC_DATA_WIDTH    => 8,
+      GC_USER_WIDTH    => 1,
+      GC_ID_WIDTH      => 1,
+      GC_DEST_WIDTH    => 1,
+      GC_INSTANCE_IDX  => 3
+      )
+    port map (
+      clk              => clk,
+      axistream_vvc_if => axistream_if_packet_receive
       );
 
 
@@ -194,6 +246,15 @@ begin
 
     shared_axistream_vvc_config(0).bfm_config := v_axistream_bfm_config;
     shared_axistream_vvc_config(1).bfm_config := v_axistream_bfm_config;
+    shared_axistream_vvc_config(2).bfm_config := v_axistream_bfm_config;
+    shared_axistream_vvc_config(3).bfm_config := v_axistream_bfm_config;
+
+    -- AXI-Stream VVC ID 2 and 3 are packet based
+    shared_axistream_vvc_config(2).bfm_config.check_packet_length := true;
+    shared_axistream_vvc_config(3).bfm_config.check_packet_length := true;
+
+    -- Indicate to uvvm_cosim that VVCs are now configured
+    vvc_config_done <= '1';
 
     -----------------------------------------------------------------------------
     -- Start clock

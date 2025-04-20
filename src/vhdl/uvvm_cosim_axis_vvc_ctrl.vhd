@@ -70,10 +70,6 @@ begin
           exit;
         end if;
 
-        -- TODO:
-        -- For packet based transmit use transmit_pkt_queue_get function (not
-        -- implemented yet) and collect data in an slv_array buffer
-        -- until the 9th bit in v_data (end of packet) is set.
         data_out(v_byte_idx) := std_logic_vector(to_unsigned(uvvm_cosim_foreign_transmit_byte_queue_get(C_VVC_TYPE, GC_VVC_IDX), data_out(0)'length));
 
         v_byte_idx := v_byte_idx + 1;
@@ -91,8 +87,34 @@ begin
       variable data_out      : out t_slv_array;
       variable data_size_out : out integer)
     is
-      variable v_byte_idx : integer := 0;
+      variable v_byte_idx     : integer := 0;
+      variable v_eop_and_byte : std_logic_vector(8 downto 0);
+      variable v_eop          : std_logic := '0';
+      variable v_byte         : std_logic_vector(7 downto 0);
     begin
+      if uvvm_cosim_foreign_transmit_packet_queue_empty(C_VVC_TYPE, GC_VVC_IDX) = 0 and
+         vvc_status.pending_cmd_cnt < C_CMD_QUEUE_MAX
+      then
+
+        while not v_eop loop
+          if v_byte_idx = C_AXISTREAM_VVC_CMD_DATA_MAX_BYTES then
+            alert(TB_FAILURE, "Got max allowed bytes for packet on AXISTREAM VVC = " & to_string(GC_VVC_IDX) & " but no end-of-packet flag yet.", C_SCOPE);
+            exit;
+          end if;
+
+          v_eop_and_byte := std_logic_vector(to_unsigned(uvvm_cosim_foreign_transmit_packet_queue_get(C_VVC_TYPE, GC_VVC_IDX), v_eop_and_byte'length));
+
+          v_byte := v_eop_and_byte(7 downto 0);
+          v_eop  := v_eop_and_byte(8);
+
+          data_out(v_byte_idx) := v_byte;
+          v_byte_idx := v_byte_idx + 1;
+        end loop;
+
+      end if;
+
+      data_size_out := v_byte_idx;
+
     end procedure fetch_packet_to_transmit;
 
   begin
@@ -110,19 +132,25 @@ begin
     loop
       wait until rising_edge(clk);
 
-      -- Fetch packet or bytes from cosim transmit queue
-      if bfm_config.check_packet_length then
-        fetch_packet_to_transmit (v_data, v_data_size);
-      else
-        fetch_bytes_to_transmit (v_data, v_data_size);
-      end if;
+      -- Queue up as much data as we can this cycle
+      while true loop
 
-      -- Transmit any bytes we got from cosim buffer
-      if v_data_size > 0 then
-        log(ID_SEQUENCER, "Got " & to_string(v_data_size) & " bytes to transmit on VVC " & to_string(GC_VVC_IDX), C_SCOPE);
-        axistream_transmit(AXISTREAM_VVCT, GC_VVC_IDX, v_data(0 to v_data_size-1),
-                           "Transmit " & to_string(v_data_size) & " bytes from uvvm_cosim_axis_vvc_ctrl");
-      end if;
+        -- Fetch packet or bytes from cosim transmit queue
+        if bfm_config.check_packet_length then
+          fetch_packet_to_transmit (v_data, v_data_size);
+        else
+          fetch_bytes_to_transmit (v_data, v_data_size);
+        end if;
+
+        -- Transmit any bytes we got from cosim buffer
+        if v_data_size > 0 then
+          log(ID_SEQUENCER, "Got " & to_string(v_data_size) & " bytes to transmit on VVC " & to_string(GC_VVC_IDX), C_SCOPE);
+          axistream_transmit(AXISTREAM_VVCT, GC_VVC_IDX, v_data(0 to v_data_size-1),
+                             "Transmit " & to_string(v_data_size) & " bytes from uvvm_cosim_axis_vvc_ctrl");
+        else
+          exit; -- No more data this cycle
+        end if;
+      end loop;
 
     end loop;
 
@@ -137,7 +165,8 @@ begin
     alias bfm_config                   : t_axistream_bfm_config is shared_axistream_vvc_config(GC_VVC_IDX).bfm_config;
     variable v_cmd_idx                 : integer;
     variable v_result_data             : bitvis_vip_axistream.vvc_cmd_pkg.t_vvc_result;
-
+    variable v_end_of_packet_flag      : integer;
+    variable v_byte_as_int             : integer;
     variable v_start_new_transaction   : boolean := true;
 
     impure function listen_enable (void : t_void) return boolean is
@@ -149,10 +178,6 @@ begin
     begin
       if bfm_config.max_wait_cycles_severity /= NO_ALERT then
         alert(TB_ERROR, "AXISTREAM VVC " & to_string(GC_VVC_IDX) & ": Max wait cycles severity (timeout) should be set to NO_ALERT for cosim", C_SCOPE);
-      end if;
-
-      if bfm_config.check_packet_length then
-        alert(TB_ERROR, "AXISTREAM VVC = " & to_string(GC_VVC_IDX) & ": Packet length (tlast) is not supported for cosim yet", C_SCOPE);
       end if;
     end procedure check_bfm_config;
 
@@ -198,14 +223,33 @@ begin
           else
             log(ID_SEQUENCER, "AXISTREAM VVC " & to_string(GC_VVC_IDX) & ": Transaction completed. Data: " & to_string(v_result_data.data_array(0 to v_result_data.data_length-1), HEX), C_SCOPE);
 
-            for byte_num in 0 to v_result_data.data_length-1 loop
-              uvvm_cosim_foreign_receive_byte_queue_put(C_VVC_TYPE, GC_VVC_IDX,
-                                                        to_integer(unsigned(v_result_data.data_array(byte_num)))
-                                                        );
-            -- TODO:
-            -- For packet based receive set the 9th bith (end of packet) in the
-            -- integer argument to uvvm_cosim_foreign_receive_pkt_queue_put on the last byte.
-            end loop;
+            if bfm_config.check_packet_length then
+              -- Packet based VVC. Data needs to go in packet queue
+              -- and end of packet parameter must be set for the last
+              -- byte
+              v_end_of_packet_flag := 0;
+
+              for byte_num in 0 to v_result_data.data_length-1 loop
+                if byte_num = v_result_data.data_length-1 then
+                  v_end_of_packet_flag := 1;
+                end if;
+
+                v_byte_as_int := to_integer(unsigned(v_result_data.data_array(byte_num)));
+
+                uvvm_cosim_foreign_receive_packet_queue_put(C_VVC_TYPE, GC_VVC_IDX,
+                                                            v_byte_as_int, v_end_of_packet_flag);
+              end loop;
+
+            else
+              -- VVC is not packet based.
+              -- Byte data can be put directly in byte queue.
+              for byte_num in 0 to v_result_data.data_length-1 loop
+                v_byte_as_int := to_integer(unsigned(v_result_data.data_array(byte_num)));
+
+                uvvm_cosim_foreign_receive_byte_queue_put(C_VVC_TYPE, GC_VVC_IDX,
+                                                          v_byte_as_int);
+              end loop;
+            end if;
 
           end if;
 
