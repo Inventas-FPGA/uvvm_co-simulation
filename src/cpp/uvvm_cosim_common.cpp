@@ -65,6 +65,36 @@ void receive_byte_queue_put(std::string vvc_type, int vvc_instance_id, uint8_t b
   cosim_server->ReceiveQueuePut(vvc_type, vvc_instance_id, byte);
 }
 
+bool transmit_packet_queue_empty(std::string vvc_type, int vvc_instance_id)
+{
+  return cosim_server->TransmitPacketQueueEmpty(vvc_type, vvc_instance_id);
+}
+
+int transmit_packet_queue_get(std::string vvc_type, int vvc_instance_id)
+{
+  auto byte = cosim_server->TransmitPacketQueueGet(vvc_type, vvc_instance_id);
+
+  if (byte) {
+    int data = byte.value().first;
+    if (byte.value().second) {
+      data |= (1 << 8); // 9th bit marks eop
+    }
+    return data;
+  } else {
+    // TODO:
+    // Kill simulation if TransmitPacketQueueGet didn't return anything?
+    sim_printf("Error: TransmitPacketQueueGet did not return a byte");
+    return 0;
+  }
+}
+
+void receive_packet_queue_put(std::string vvc_type, int vvc_instance_id,
+			      uint8_t byte, bool eop)
+{
+  cosim_server->ReceivePacketQueuePut(vvc_type, vvc_instance_id, byte, eop);
+}
+
+
 void start_sim(void)
 {
   cosim_server->WaitForStartSim();

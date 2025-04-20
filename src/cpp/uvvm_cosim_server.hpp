@@ -83,7 +83,7 @@ public:
   }
 
   // --------------------------------------------------------------------------
-  // Methods used by VHPI code
+  // Methods used by VHPI/FLI code
   // --------------------------------------------------------------------------
 
   void StartListening()
@@ -110,6 +110,12 @@ public:
   std::optional<uint8_t> TransmitQueueGet(std::string vvc_type, int vvc_instance_id);
 
   void ReceiveQueuePut(std::string vvc_type, int vvc_instance_id, uint8_t byte);
+
+  bool TransmitPacketQueueEmpty(std::string vvc_type, int vvc_instance_id);
+
+  auto TransmitPacketQueueGet(std::string vvc_type, int vvc_instance_id) -> std::optional<std::pair<uint8_t, bool>>;
+
+  void ReceivePacketQueuePut(std::string vvc_type, int vvc_instance_id, uint8_t byte, bool eop);
 
 };
   

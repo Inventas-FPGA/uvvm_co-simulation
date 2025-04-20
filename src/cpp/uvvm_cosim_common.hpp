@@ -20,6 +20,13 @@ int transmit_byte_queue_get(std::string vvc_type, int vvc_instance_id);
 void receive_byte_queue_put(std::string vvc_type, int vvc_instance_id,
                             uint8_t byte);
 
+bool transmit_packet_queue_empty(std::string vvc_type, int vvc_instance_id);
+
+int transmit_packet_queue_get(std::string vvc_type, int vvc_instance_id);
+
+void receive_packet_queue_put(std::string vvc_type, int vvc_instance_id,
+			      uint8_t byte, bool eop);
+
 void start_sim(void);
 
 bool terminate_sim(void);
