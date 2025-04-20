@@ -42,12 +42,29 @@ package uvvm_cosim_foreign_pkg is
     constant vvc_instance_id : in integer;
     constant byte            : in integer);
 
-  attribute foreign of uvvm_cosim_foreign_start_sim                 : procedure is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_start_sim";
-  attribute foreign of uvvm_cosim_foreign_terminate_sim             : function is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_terminate_sim";
-  attribute foreign of uvvm_cosim_foreign_report_vvc_info           : procedure is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_report_vvc_info";
-  attribute foreign of uvvm_cosim_foreign_vvc_listen_enable         : function is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_vvc_listen_enable";
-  attribute foreign of uvvm_cosim_foreign_transmit_byte_queue_empty : function is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_transmit_byte_queue_empty";
-  attribute foreign of uvvm_cosim_foreign_transmit_byte_queue_get   : function is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_transmit_byte_queue_get";
-  attribute foreign of uvvm_cosim_foreign_receive_byte_queue_put    : procedure is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_receive_byte_queue_put";
+  impure function uvvm_cosim_foreign_transmit_packet_queue_empty(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) return integer;
+
+  impure function uvvm_cosim_foreign_transmit_packet_queue_get(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) return integer;
+
+  procedure uvvm_cosim_foreign_receive_packet_queue_put(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer;
+    constant byte            : in integer;
+    constant end_of_packet   : in integer);
+
+  attribute foreign of uvvm_cosim_foreign_start_sim                   : procedure is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_start_sim";
+  attribute foreign of uvvm_cosim_foreign_terminate_sim               : function is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_terminate_sim";
+  attribute foreign of uvvm_cosim_foreign_report_vvc_info             : procedure is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_report_vvc_info";
+  attribute foreign of uvvm_cosim_foreign_vvc_listen_enable           : function is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_vvc_listen_enable";
+  attribute foreign of uvvm_cosim_foreign_transmit_byte_queue_empty   : function is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_transmit_byte_queue_empty";
+  attribute foreign of uvvm_cosim_foreign_transmit_byte_queue_get     : function is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_transmit_byte_queue_get";
+  attribute foreign of uvvm_cosim_foreign_receive_byte_queue_put      : procedure is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_receive_byte_queue_put";
+  attribute foreign of uvvm_cosim_foreign_transmit_packet_queue_empty : function is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_transmit_packet_queue_empty";
+  attribute foreign of uvvm_cosim_foreign_transmit_packet_queue_get   : function is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_transmit_packet_queue_get";
+  attribute foreign of uvvm_cosim_foreign_receive_packet_queue_put    : procedure is "VHPI libuvvm_cosim_vhpi.so uvvm_cosim_foreign_receive_packet_queue_put";
 
 end package uvvm_cosim_foreign_pkg;
