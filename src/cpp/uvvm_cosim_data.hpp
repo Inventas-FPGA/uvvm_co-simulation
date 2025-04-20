@@ -3,6 +3,7 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 #include "shared_map.hpp"
 #include "uvvm_cosim_types.hpp"
@@ -54,7 +55,7 @@ private:
 
   size_t packet_queue_size(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc);
 
-  auto packet_queue_get_byte(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc) -> std::optional<uint8_t>;
+  auto packet_queue_get_byte(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc) -> std::optional<std::pair<uint8_t, bool>>;
 
   auto packet_queue_get_pkt(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc) -> std::vector<uint8_t>;
 
@@ -123,7 +124,7 @@ public:
 
   size_t packet_queue_size(QueueId qid, VvcInstanceKey vvc);
 
-  auto packet_queue_get_byte(QueueId qid, VvcInstanceKey vvc) -> std::optional<uint8_t>;
+  auto packet_queue_get_byte(QueueId qid, VvcInstanceKey vvc) -> std::optional<std::pair<uint8_t, bool>>;
 
   auto packet_queue_get_pkt(QueueId qid, VvcInstanceKey vvc) -> std::vector<uint8_t>;
 

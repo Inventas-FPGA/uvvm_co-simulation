@@ -76,6 +76,29 @@ void uvvm_cosim_foreign_receive_byte_queue_put(mtiVariableIdT vvc_type,
   uvvm_cosim::receive_byte_queue_put(vvc_type_str, vvc_instance_id, byte);
 }
 
+int uvvm_cosim_foreign_transmit_packet_queue_empty(mtiVariableIdT vvc_type,
+                                                 int vvc_instance_id) {
+  std::string vvc_type_str = get_string(vvc_type);
+
+  return uvvm_cosim::transmit_packet_queue_empty(vvc_type_str, vvc_instance_id) ? 1 : 0;
+}
+
+int uvvm_cosim_foreign_transmit_packet_queue_get(mtiVariableIdT vvc_type,
+						 int vvc_instance_id) {
+  std::string vvc_type_str = get_string(vvc_type);
+
+  return uvvm_cosim::transmit_packet_queue_get(vvc_type_str, vvc_instance_id);
+}
+
+void uvvm_cosim_foreign_receive_packet_queue_put(mtiVariableIdT vvc_type,
+						 int vvc_instance_id,
+						 int byte, int end_of_packet)
+{
+  std::string vvc_type_str = get_string(vvc_type);
+  bool eop = end_of_packet == 1 ? true : false;
+  uvvm_cosim::receive_packet_queue_put(vvc_type_str, vvc_instance_id, byte, eop);
+}
+
 static void start_of_sim_cb(void* p)
 {
   uvvm_cosim::start_of_sim();

@@ -32,8 +32,13 @@ inst_uvvm_cosim: entity work.uvvm_cosim
     generic map (
       GC_COSIM_EN => true)
     port map (
-      clk => clk);
+      clk             => clk,
+      vvc_config_done => vvc_config_done);
 ```
+
+You can use any clock for the cosim module, but note that the cosim module will poll the cosim server for data to transmit every cycle of this clock. Running the cosim module at the "main system clock" may slow down your simulation, so it may be beneficial to run this module at a slower clock (with the tradeoff that transmit transactions are scheduled less frequently).
+
+The vvc\_config\_done signal should be set in your testbench/sequencer process after you have finished configuring all VVCs/BFMs. The cosim module will initially wait for this signal to go high.
 
 2. Add a test case or mode where your DUT is in a "free-running" mode.
 
@@ -58,10 +63,12 @@ Since receive will likely timeout frequently (depending on how high you set max 
 shared_axistream_vvc_config(VVC_ID).bfm_config.max_wait_cycles_severity := NO_ALERT;
 ```
 
-At the moment, AXI-Stream packets (using TLAST), is not supported. So `check_packet_length` must be disabled:
+Packet based AXI-Stream (ie. using TLAST) **is** supported. This is automatically detected from the VVC's configuration:
 ```
-shared_axistream_vvc_config(VVC_ID).bfm_config.check_packet_length := false;
+shared_axistream_vvc_config(VVC_ID).bfm_config.check_packet_length := true;
 ```
+
+Note that for AXI-Stream VVCs with `check_packet_length=false` you must use the `TransmitBytes` and `ReceiveBytes` JSON-RPC methods, while for packet-based VVCs (`check_packet_length=true`) you have to use the `TransmitPacket` and `ReceivePacket` methods.
 
 4. Compile and run your simulation
 
@@ -273,10 +280,12 @@ Supported VVCs:
 
 ## Transmit and receive packet
 
-Planned, but **NOT** implemented yet:
-
 `TransmitPacket(VVC_TYPE, VVC_ID, [packet])`
 `ReceiveBytes(VVC_TYPE, VVC_ID)`
+
+Supported VVCs:
+- AXISTREAM VVC with check\_packet\_length enabled in config
+- AVALON-ST (planned) with use\_packet\_transfer enabled in config
 
 ## Note on VVC configurations and channels
 

@@ -28,10 +28,13 @@ inline std::string to_string(const VvcInstanceKey& vvc)
 }
 
 struct VvcConfig {
-  std::map<std::string, int> bfm_cfg;
+  // Common config options used with most/all VVC types
   bool listen_enable = false;
-  bool cosim_support;
-  bool packet_based;
+  bool cosim_support = false;
+  bool packet_based = false;
+
+  // Map for VVC/BFM-specific config options
+  std::map<std::string, int> bfm_cfg;
 };
 
 // Used as value in std::map of all VVCs in server

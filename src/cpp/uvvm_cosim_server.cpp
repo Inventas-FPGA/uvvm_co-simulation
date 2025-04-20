@@ -1,9 +1,11 @@
 #include <map>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 #include "nlohmann/json.hpp"
 #include "uvvm_cosim_server.hpp"
+#include "uvvm_cosim_types.hpp"
 
 // Split a string by delimiter into substrings.
 // Unnecessary leading/trailing and extra delimiters are removed
@@ -148,6 +150,40 @@ void UvvmCosimServer::ReceiveQueuePut(std::string vvc_type,
   cosimData.byte_queue_put(QID_RECEIVE, vvc, byte);
 }
 
+bool UvvmCosimServer::TransmitPacketQueueEmpty(std::string vvc_type, int vvc_instance_id)
+{
+  VvcInstanceKey vvc = {
+    .vvc_type = vvc_type,
+    .vvc_channel = "NA",
+    .vvc_instance_id = vvc_instance_id
+  };
+
+  return cosimData.packet_queue_empty(QID_TRANSMIT, vvc);
+}
+
+auto UvvmCosimServer::TransmitPacketQueueGet(std::string vvc_type, int vvc_instance_id) -> std::optional<std::pair<uint8_t, bool>>
+{
+  VvcInstanceKey vvc = {
+    .vvc_type = vvc_type,
+    .vvc_channel = "NA",
+    .vvc_instance_id = vvc_instance_id
+  };
+
+  return cosimData.packet_queue_get_byte(QID_TRANSMIT, vvc);
+}
+
+void UvvmCosimServer::ReceivePacketQueuePut(std::string vvc_type, int vvc_instance_id, uint8_t byte, bool eop)
+{
+  VvcInstanceKey vvc = {
+    .vvc_type = vvc_type,
+    .vvc_channel = "NA",
+    .vvc_instance_id = vvc_instance_id
+  };
+
+  cosimData.packet_queue_put_byte(QID_RECEIVE, vvc, byte, eop);
+}
+
+
 JsonResponse
 UvvmCosimServer::StartSim()
 {
@@ -249,10 +285,22 @@ UvvmCosimServer::TransmitBytes(std::string vvc_type, int vvc_id, std::vector<uin
 JsonResponse
 UvvmCosimServer::TransmitPacket(std::string vvc_type, int vvc_id, std::vector<uint8_t> data)
 {
-  JsonResponse response = {
-    .success = false,
-    .result = json{{"error", "Not implemented"}}
+  JsonResponse response;
+
+  VvcInstanceKey vvc = {
+    .vvc_type = vvc_type,
+    .vvc_channel = "NA",
+    .vvc_instance_id = vvc_id
   };
+
+  try {
+    cosimData.packet_queue_put_pkt(QID_TRANSMIT, vvc, data);
+    response.success = true;
+  }
+  catch (const std::runtime_error& e) {
+    response.success = false;
+    response.result = json{{"error", e.what()}};
+  }
 
   return response;
 }
@@ -296,10 +344,28 @@ UvvmCosimServer::ReceiveBytes(std::string vvc_type, int vvc_id, int num_bytes, b
 JsonResponse
 UvvmCosimServer::ReceivePacket(std::string vvc_type, int vvc_id)
 {
-  JsonResponse response = {
-    .success = false,
-    .result = json{{"error", "Not implemented"}}
+  JsonResponse response;
+
+  VvcInstanceKey vvc = {
+    .vvc_type = vvc_type,
+    .vvc_channel = (vvc_type == "UART_VVC" ? "RX" : "NA"),
+    .vvc_instance_id = vvc_id
   };
+
+  try {
+    std::vector<uint8_t> pkt;
+
+    if(!cosimData.packet_queue_empty(QID_RECEIVE, vvc)) {
+      pkt = cosimData.packet_queue_get_pkt(QID_RECEIVE, vvc);
+    }
+
+    response.success = true;
+    response.result = json{{"data", pkt}};
+  }
+  catch (const std::runtime_error& e) {
+    response.success = false;
+    response.result = json{{"error", e.what()}};
+  }
 
   return response;
 }

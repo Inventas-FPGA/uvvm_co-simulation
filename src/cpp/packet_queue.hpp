@@ -3,6 +3,7 @@
 #include <deque>
 #include <optional>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace uvvm_cosim {
@@ -23,7 +24,7 @@ public:
     return q.size();
   }
 
-  std::optional<uint8_t> get_byte(void)
+  std::optional<std::pair<uint8_t, bool>> get_byte(void)
   {
     while (!q.empty()) {
 
@@ -38,9 +39,10 @@ public:
       // Pop packet from queue if this was the last byte in packet
       if (q.front().empty()) {
         q.pop_front();
+	return std::make_pair(byte, true);
       }
 
-      return byte;
+      return std::make_pair(byte, false);
     }
 
     return {};

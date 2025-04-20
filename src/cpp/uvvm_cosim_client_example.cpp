@@ -46,6 +46,8 @@ void print_vvc(const VvcInstance& vvc)
   }
   std::cout << "listen_enable: "
             << (vvc.listen_enable ? "true" : "false") << std::endl;
+  std::cout << "packet_based: "
+            << (vvc.packet_based ? "true" : "false") << std::endl;
 }
 
 void print_vvc_list(const JsonResponse& vvc_list_json)
@@ -85,9 +87,10 @@ int main(int argc, char** argv)
   auto vvc_list = client.GetVvcList();
   print_vvc_list(vvc_list);
 
-  std::cout << "Enable cosim listening on AXI-S VVC 1 and UART VVC 1" << std::endl;
+  std::cout << "Enable cosim listening on AXI-S VVC 1,3 and UART VVC 1" << std::endl;
   client.SetVvcListenEnable("UART_VVC", 1, true);
   client.SetVvcListenEnable("AXISTREAM_VVC", 1, true);
+  client.SetVvcListenEnable("AXISTREAM_VVC", 3, true);
   std::this_thread::sleep_for(0.5s);
 
   std::cout << "Get VVC list again...." << std::endl << std::endl;
@@ -96,7 +99,11 @@ int main(int argc, char** argv)
 
   std::this_thread::sleep_for(0.5s);
 
-  std::cout << "AXI-Stream: Transmit some data..." << std::endl;
+  // --------------------------------------------------------------------------
+  // Send/receive some bytes on non-packet based AXI-Stream VVCs
+  // --------------------------------------------------------------------------
+
+  std::cout << "AXI-Stream ID 0: Transmit some data..." << std::endl;
 
   client.TransmitBytes("AXISTREAM_VVC", 0, {0x01, 0x02, 0x03, 0x04, 0x05, 0x06});
   client.TransmitBytes("AXISTREAM_VVC", 0, {0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C});
@@ -105,24 +112,55 @@ int main(int argc, char** argv)
   // Assume data has been transmitted/received after 1.0 seconds
   std::this_thread::sleep_for(1.0s);
 
-  std::cout << "AXI-Stream: Request to receive 6 bytes..." << std::endl;
+  std::cout << "AXI-Stream ID 1: Request to receive 6 bytes..." << std::endl;
   {
     auto res = client.ReceiveBytes("AXISTREAM_VVC", 1, 6, false);
     print_receive_result(res, "AXI-Stream");
   }
 
-  std::cout << "AXI-Stream: Request to receive 12 bytes..." << std::endl;
+  std::cout << "AXI-Stream ID 1: Request to receive 12 bytes..." << std::endl;
   {
     auto res = client.ReceiveBytes("AXISTREAM_VVC", 1, 12, false);
     print_receive_result(res, "AXI-Stream");
   }
 
-  std::cout << "AXI-Stream: Request to receive 10 bytes..." << std::endl;
+  std::cout << "AXI-Stream ID 1: Request to receive 10 bytes..." << std::endl;
   {
     auto res = client.ReceiveBytes("AXISTREAM_VVC", 1, 10, false);
     print_receive_result(res, "AXI-Stream");
   }
 
+  // --------------------------------------------------------------------------
+  // Send/receive some packets on packet based AXI-Stream VVCs
+  // --------------------------------------------------------------------------
+
+  std::cout << "AXI-Stream ID 2: Transmit some packets..." << std::endl;
+
+  client.TransmitPacket("AXISTREAM_VVC", 2, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+  client.TransmitPacket("AXISTREAM_VVC", 2, {0xAA, 0xBB, 0xCC, 0xCD, 0xEF});
+  client.TransmitPacket("AXISTREAM_VVC", 2, {100, 200, 12, 34, 85, 01, 12, 58});
+
+  // Assume data has been transmitted/received after 1.0 seconds
+  std::this_thread::sleep_for(1.0s);
+
+  std::cout << "AXI-Stream ID 3: Request to receive packets..." << std::endl;
+  {
+    auto res = client.ReceivePacket("AXISTREAM_VVC", 3);
+    print_receive_result(res, "AXI-Stream");
+
+    res = client.ReceivePacket("AXISTREAM_VVC", 3);
+    print_receive_result(res, "AXI-Stream");
+
+    res = client.ReceivePacket("AXISTREAM_VVC", 3);
+    print_receive_result(res, "AXI-Stream");
+
+    res = client.ReceivePacket("AXISTREAM_VVC", 3);
+    print_receive_result(res, "AXI-Stream");
+  }
+
+  // --------------------------------------------------------------------------
+  // Send/receive some bytes on UART VVCs, test pause/resume sim
+  // --------------------------------------------------------------------------
   std::cout << "Pause sim" << std::endl;
   client.PauseSim();
 

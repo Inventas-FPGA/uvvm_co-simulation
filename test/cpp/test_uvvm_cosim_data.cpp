@@ -18,11 +18,11 @@ std::vector<VvcInstanceKey> vk = {
 
 // Some random imaginary config values pairs
 std::vector<VvcConfig> vc = {
-  VvcConfig{.bfm_cfg = {{"cfg_val1", 0}, {"cfg_val2", 1}, {"cfg_val3", 10}}, .listen_enable=true},
-  VvcConfig{.bfm_cfg = {{"airplane", 200}, {"helicopter", 123}}, .listen_enable=false},
-  VvcConfig{.bfm_cfg = {{"spaghetti", 1}, {"pizza", 234}, {"lasagne", 0}, {"risotto", 89}}, .listen_enable=false},
-  VvcConfig{.bfm_cfg = {{"cookie", 14}}, .listen_enable=true},
-  VvcConfig{.bfm_cfg = {{"firetruck", 123}, {"boat", 23}, {"submarine", 10}}, .listen_enable=false}
+  VvcConfig{.listen_enable=true, .bfm_cfg = {{"cfg_val1", 0}, {"cfg_val2", 1}, {"cfg_val3", 10}}},
+  VvcConfig{.listen_enable=false, .bfm_cfg = {{"airplane", 200}, {"helicopter", 123}}},
+  VvcConfig{.listen_enable=false, .bfm_cfg = {{"spaghetti", 1}, {"pizza", 234}, {"lasagne", 0}, {"risotto", 89}}},
+  VvcConfig{.listen_enable=true, .bfm_cfg = {{"cookie", 14}}},
+  VvcConfig{.listen_enable=false, .bfm_cfg = {{"firetruck", 123}, {"boat", 23}, {"submarine", 10}}}
 };
 
 // Some VVC instances key+config data. GetVvcList returns VvcInstance.
@@ -307,4 +307,13 @@ TEST_CASE("UvvmCosimData_byte_queues")
 TEST_CASE("UvvmCosimData_packet_queues")
 {
   INFO("TODO: Not implemented yet");
+}
+
+TEST_CASE("UvvmCosimData_packet_based_queue_access")
+{
+  INFO("TODO: Not implemented yet");
+
+  // Check that only packet queue methods can be used for
+  // VVCs with packet_based flag set, and only byte queue
+  // methods for those without the flag.
 }

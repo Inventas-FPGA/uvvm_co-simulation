@@ -33,7 +33,8 @@ entity axistream_uart_uvvm_th is
     GC_UART_VVC_IDX          : natural;
     GC_COSIM_ENABLE          : boolean);
   port (
-    arst : in  std_logic
+    arst            : in std_logic;
+    vvc_config_done : in std_logic
   );
 end entity axistream_uart_uvvm_th;
 
@@ -96,7 +97,8 @@ begin
     generic map (
       GC_COSIM_EN => GC_COSIM_ENABLE)
     port map (
-      clk => clk_cosim);
+      clk             => clk_cosim,
+      vvc_config_done => vvc_config_done);
 
   i_axistream_vvc_transmit : entity bitvis_vip_axistream.axistream_vvc
     generic map (
