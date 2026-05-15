@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <algorithm>
 #include <map>
 #include <stdexcept>
 #include <vector>
@@ -7,106 +8,101 @@
 
 using namespace uvvm_cosim;
 
-// Some VVC examples placed in the order we expect VvcCompare to sort them
-std::vector<VvcInstanceKey> vk = {
-    VvcInstanceKey{"AXISTREAM_VVC", "NA", 1},
-    VvcInstanceKey{"AXISTREAM_VVC", "NA", 10},
-    VvcInstanceKey{"UART_VVC", "RX", 3},
-    VvcInstanceKey{"UART_VVC", "TX", 0},
-    VvcInstanceKey{"UART_VVC", "TX", 3}
+// VVC identifiers in the order VvcCompare should sort them.
+// Sort key: (vvc_type enum value, vvc_channel enum value, instance_id).
+// AXI_STREAM=0, UART=5; NA=0, RX=1, TX=2.
+std::vector<VvcIdentifier> vk = {
+  {VvcTypes::AXI_STREAM, VvcChannel::NA,  1},
+  {VvcTypes::AXI_STREAM, VvcChannel::NA, 10},
+  {VvcTypes::UART,       VvcChannel::RX,  3},
+  {VvcTypes::UART,       VvcChannel::TX,  0},
+  {VvcTypes::UART,       VvcChannel::TX,  3},
 };
 
-// Some random imaginary config values pairs
-std::vector<VvcConfig> vc = {
-  VvcConfig{.listen_enable=true, .bfm_cfg = {{"cfg_val1", 0}, {"cfg_val2", 1}, {"cfg_val3", 10}}},
-  VvcConfig{.listen_enable=false, .bfm_cfg = {{"airplane", 200}, {"helicopter", 123}}},
-  VvcConfig{.listen_enable=false, .bfm_cfg = {{"spaghetti", 1}, {"pizza", 234}, {"lasagne", 0}, {"risotto", 89}}},
-  VvcConfig{.listen_enable=true, .bfm_cfg = {{"cookie", 14}}},
-  VvcConfig{.listen_enable=false, .bfm_cfg = {{"firetruck", 123}, {"boat", 23}, {"submarine", 10}}}
+// bfm_cfg maps — none contain "cosim_support" or "packet_based",
+// so all keys are stored verbatim in the VVC's bfm_cfg.
+std::vector<std::map<std::string, int>> bfm_cfgs = {
+  {{"cfg_val1", 0}, {"cfg_val2", 1}, {"cfg_val3", 10}},
+  {{"airplane", 200}, {"helicopter", 123}},
+  {{"spaghetti", 1}, {"pizza", 234}, {"lasagne", 0}, {"risotto", 89}},
+  {{"cookie", 14}},
+  {{"firetruck", 123}, {"boat", 23}, {"submarine", 10}},
 };
 
-// Some VVC instances key+config data. GetVvcList returns VvcInstance.
-std::vector<VvcInstance> vi = {
-  {vk[0], vc[0]},
-  {vk[1], vc[1]},
-  {vk[2], vc[2]},
-  {vk[3], vc[3]},
-  {vk[4], vc[4]},
-};
+// listen_enable flags corresponding to each VVC (set separately via SetVvcListenEnable)
+std::vector<bool> listen_enable = {true, false, false, true, false};
 
-static inline bool operator==(const VvcInstance& lhs, const VvcInstance& rhs)
+// Helper: add vk[i] to cosim_data using the string-based AddVvc overload
+static void addVvc(UvvmCosimData& d, int i)
 {
-  return
-    lhs.vvc_type == rhs.vvc_type &&
-    lhs.vvc_channel == rhs.vvc_channel &&
-    lhs.vvc_instance_id == rhs.vvc_instance_id;
+  d.AddVvc(to_string(vk[i].vvc_type), to_string(vk[i].vvc_channel),
+           vk[i].vvc_instance_id, bfm_cfgs[i]);
+}
+
+// Helper: find the VvcInfo matching vk[i] in a VvcInfo list
+static VvcInfo findInfo(const std::vector<VvcInfo>& list, int i)
+{
+  auto it = std::find_if(list.begin(), list.end(), [&](const VvcInfo& v) {
+    return v.vvc_type        == to_string(vk[i].vvc_type) &&
+           v.vvc_channel     == to_string(vk[i].vvc_channel) &&
+           v.vvc_instance_id == vk[i].vvc_instance_id;
+  });
+  REQUIRE(it != list.end());
+  return *it;
 }
 
 TEST_CASE("UvvmCosimData_AddVvc_and_GetVvcList")
 {
-  INFO("UvvmCosimData_AddVvc test start. Check adding and retrieving VVCs.");
+  INFO("Check adding and retrieving VVCs.");
 
   UvvmCosimData cosim_data;
 
-  std::vector<VvcInstance> vvc_list = cosim_data.GetVvcList();
-
   INFO("Check empty initially");
-  REQUIRE(vvc_list.empty() == true);
+  REQUIRE(cosim_data.GetVvcList().empty());
 
   INFO("Add one VVC, retrieve VVC list and check that it matches");
-  cosim_data.AddVvc(vk[0], vc[0].bfm_cfg);
+  addVvc(cosim_data, 0);
 
-  vvc_list = cosim_data.GetVvcList();
-  REQUIRE(vvc_list.empty() == false);
+  auto vvc_list = cosim_data.GetVvcList();
   REQUIRE(vvc_list.size() == 1);
-  REQUIRE(vvc_list[0].vvc_type == vk[0].vvc_type);
-  REQUIRE(vvc_list[0].vvc_channel == vk[0].vvc_channel);
+  REQUIRE(vvc_list[0].vvc_type        == to_string(vk[0].vvc_type));
+  REQUIRE(vvc_list[0].vvc_channel     == to_string(vk[0].vvc_channel));
   REQUIRE(vvc_list[0].vvc_instance_id == vk[0].vvc_instance_id);
 
-  // NOTE:
-  // AddVvc only takes the bfm_cfg map, not the whole VvcConfig type.
-  // So the listen_enable flag has not been set and should be false initially.
+  // AddVvc does not set listen_enable; it should be false initially.
   REQUIRE(vvc_list[0].listen_enable == false);
 
-  REQUIRE(vc[0].bfm_cfg.size() == vvc_list[0].bfm_cfg.size());
-  
-  for (auto const &kv : vc[0].bfm_cfg) {
-    REQUIRE(vvc_list[0].bfm_cfg.contains(kv.first));
-    REQUIRE(vvc_list[0].bfm_cfg[kv.first] == kv.second);
+  REQUIRE(vvc_list[0].bfm_cfg.size() == bfm_cfgs[0].size());
+  for (auto& [k, v] : bfm_cfgs[0]) {
+    REQUIRE(vvc_list[0].bfm_cfg.contains(k));
+    REQUIRE(vvc_list[0].bfm_cfg.at(k) == v);
   }
-  //REQUIRE(vvc_list[0].cosim_support == false); // Not implemented
-  //REQUIRE(vvc_list[0].packet_based == false); // Not implemented
-
 
   INFO("Check that same VVC can't be added twice");
-  REQUIRE_THROWS(cosim_data.AddVvc(vk[0], vc[0].bfm_cfg));
+  REQUIRE_THROWS(addVvc(cosim_data, 0));
 
   INFO("Check that size remained the same after throw");
-  vvc_list = cosim_data.GetVvcList();
-  REQUIRE(vvc_list.size() == 1);
+  REQUIRE(cosim_data.GetVvcList().size() == 1);
 
   INFO("Add the rest of the VVCs");
   for (int i = 1; i < 5; i++) {
-    cosim_data.AddVvc(vk[i], vc[i].bfm_cfg);
+    addVvc(cosim_data, i);
   }
 
-  INFO("Compare all VVCs in retrieved list, but ignoring order");
+  INFO("Compare all VVCs in retrieved list, ignoring order");
   vvc_list = cosim_data.GetVvcList();
   REQUIRE(vvc_list.size() == 5);
 
   for (int i = 0; i < 5; i++) {
-    auto it = std::find_if(vvc_list.begin(), vvc_list.end(), [&](const VvcInstance& v) {return v == vi[i];});
-
-    
-    REQUIRE(vvc_list[i].vvc_type == it->vvc_type);
-    REQUIRE(vvc_list[i].vvc_channel == it->vvc_channel);
-    REQUIRE(vvc_list[i].vvc_instance_id == it->vvc_instance_id);
-    REQUIRE(vvc_list[i].listen_enable == it->listen_enable);
-    REQUIRE(vvc_list[i].bfm_cfg.size() == it->bfm_cfg.size());
-  
-    for (auto const &kv : vvc_list[i].bfm_cfg) {
-      REQUIRE(it->bfm_cfg.contains(kv.first));
-      REQUIRE(it->bfm_cfg[kv.first] == kv.second);
+    auto info = findInfo(vvc_list, i);
+    REQUIRE(info.vvc_type        == to_string(vk[i].vvc_type));
+    REQUIRE(info.vvc_channel     == to_string(vk[i].vvc_channel));
+    REQUIRE(info.vvc_instance_id == vk[i].vvc_instance_id);
+    REQUIRE(info.listen_enable   == false);
+    REQUIRE(info.bfm_cfg.size()  == bfm_cfgs[i].size());
+    for (auto& [k, v] : bfm_cfgs[i]) {
+      REQUIRE(info.bfm_cfg.contains(k));
+      REQUIRE(info.bfm_cfg.at(k) == v);
     }
   }
 }
@@ -119,37 +115,32 @@ TEST_CASE("UvvmCosimData_SetVvcListenEnable")
 
   INFO("Add all VVCs.");
   for (int i = 0; i < 5; i++) {
-    cosim_data.AddVvc(vk[i], vc[i].bfm_cfg);
+    addVvc(cosim_data, i);
   }
 
-  std::vector<VvcInstance> vvc_list = cosim_data.GetVvcList();
+  auto vvc_list = cosim_data.GetVvcList();
   REQUIRE(vvc_list.size() == 5);
 
-  VvcInstanceKey bad_vk {"AXISTREAM_VVC", "NA", 113};
+  VvcIdentifier bad_id{VvcTypes::AXI_STREAM, VvcChannel::NA, 113};
 
-  // Try setting listen enable flag on non-existant VVC. Should throw.
-  INFO("Set listen enable on non-existant VVC should cause exception");
-  REQUIRE_THROWS(cosim_data.SetVvcListenEnable(bad_vk, true));
+  INFO("Set listen enable on non-existent VVC should cause exception");
+  REQUIRE_THROWS(cosim_data.SetVvcListenEnable(bad_id, true));
 
-  // Check that listen enable flag is false for all VVCs
   INFO("Check that listen enable flag is false initially for all VVCs");
   for (auto& v : vvc_list) {
     REQUIRE(v.listen_enable == false);
   }
 
-  INFO("Set listen enable flags so they corresponds to those in the vi/vc lists");
-  for (auto& v: vi) {
-    cosim_data.SetVvcListenEnable(static_cast<VvcInstanceKey>(v), v.listen_enable);
+  INFO("Set listen enable flags to match listen_enable[]");
+  for (int i = 0; i < 5; i++) {
+    cosim_data.SetVvcListenEnable(vk[i], listen_enable[i]);
   }
 
-  // Retrieve VVC list again after changes
+  INFO("Retrieve updated list and verify listen_enable flags");
   vvc_list = cosim_data.GetVvcList();
-
-  INFO("Check that listen enable flags in cosim_data matches those in the vi/vc lists");
   for (int i = 0; i < 5; i++) {
-    auto it = std::find_if(vvc_list.begin(), vvc_list.end(), [&](const VvcInstance& v) {return v == vi[i];});
-
-    REQUIRE(vi[i].listen_enable == it->listen_enable);
+    auto info = findInfo(vvc_list, i);
+    REQUIRE(info.listen_enable == listen_enable[i]);
   }
 }
 
@@ -161,146 +152,141 @@ TEST_CASE("UvvmCosimData_byte_queues")
 
   INFO("Add all VVCs.");
   for (int i = 0; i < 5; i++) {
-    cosim_data.AddVvc(vk[i], vc[i].bfm_cfg);
+    addVvc(cosim_data, i);
   }
 
   INFO("Check that all queues are empty initially");
   for (int i = 0; i < 5; i++) {
-    REQUIRE(cosim_data.byte_queue_empty(QID_RECEIVE, vk[i]));
-    REQUIRE(cosim_data.byte_queue_empty(QID_TRANSMIT, vk[i]));
+    REQUIRE(cosim_data.StreamQueueEmpty(QID_RECEIVE,  vk[i]));
+    REQUIRE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, vk[i]));
   }
 
   INFO("Put byte 0xAB in transmit queue for first VVC");
-  cosim_data.byte_queue_put(QID_TRANSMIT, vk[0], 0xAB);
-  REQUIRE_FALSE(cosim_data.byte_queue_empty(QID_TRANSMIT, vk[0]));
-  REQUIRE(cosim_data.byte_queue_size(QID_TRANSMIT, vk[0]) == 1);
+  cosim_data.StreamQueuePutByte(QID_TRANSMIT, vk[0], 0xAB, false);
+  REQUIRE_FALSE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, vk[0]));
+  REQUIRE(cosim_data.StreamQueueSize(QID_TRANSMIT, vk[0]) == 1);
 
   INFO("Check that all other queues are empty");
-  REQUIRE(cosim_data.byte_queue_empty(QID_RECEIVE, vk[0]));
-  REQUIRE(cosim_data.byte_queue_size(QID_RECEIVE, vk[0]) == 0);
+  REQUIRE(cosim_data.StreamQueueEmpty(QID_RECEIVE, vk[0]));
+  REQUIRE(cosim_data.StreamQueueSize(QID_RECEIVE, vk[0]) == 0);
   for (int i = 1; i < 5; i++) {
-    REQUIRE(cosim_data.byte_queue_empty(QID_RECEIVE, vk[i]));
-    REQUIRE(cosim_data.byte_queue_empty(QID_TRANSMIT, vk[i]));
-    REQUIRE(cosim_data.byte_queue_size(QID_RECEIVE, vk[i]) == 0);
-    REQUIRE(cosim_data.byte_queue_size(QID_TRANSMIT, vk[i]) == 0);
+    REQUIRE(cosim_data.StreamQueueEmpty(QID_RECEIVE,  vk[i]));
+    REQUIRE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, vk[i]));
+    REQUIRE(cosim_data.StreamQueueSize(QID_RECEIVE,  vk[i]) == 0);
+    REQUIRE(cosim_data.StreamQueueSize(QID_TRANSMIT, vk[i]) == 0);
   }
 
   INFO("Fetch and check byte from transmit queue for first VVC");
-  std::optional<uint8_t> byte = cosim_data.byte_queue_get(QID_TRANSMIT, vk[0]);
+  auto byte = cosim_data.StreamQueueGetByte(QID_TRANSMIT, vk[0]);
   REQUIRE(byte.has_value());
-  REQUIRE(byte.value() == 0xAB);
+  REQUIRE(byte.value().first == 0xAB);
 
   INFO("Check queue empty and no more bytes returned");
-  REQUIRE(cosim_data.byte_queue_size(QID_TRANSMIT, vk[0]) == 0);
-  REQUIRE(cosim_data.byte_queue_empty(QID_TRANSMIT, vk[0]));
-  byte = cosim_data.byte_queue_get(QID_TRANSMIT, vk[0]);
+  REQUIRE(cosim_data.StreamQueueSize(QID_TRANSMIT, vk[0]) == 0);
+  REQUIRE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, vk[0]));
+  byte = cosim_data.StreamQueueGetByte(QID_TRANSMIT, vk[0]);
   REQUIRE_FALSE(byte.has_value());
 
-
-  // TODO:
-  // Should program a smarter test than this manual approach
-  
   INFO("Put some data in different queues");
   std::vector<uint8_t> vk1_transmit_data {0xAA, 0xBB, 0xCC, 0xDD};
-  std::vector<uint8_t> vk1_receive_data {0x12, 0x23, 0x45, 0x67, 0x89};
+  std::vector<uint8_t> vk1_receive_data  {0x12, 0x23, 0x45, 0x67, 0x89};
   std::vector<uint8_t> vk2_transmit_data {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  std::vector<uint8_t> vk3_receive_data {0x12, 0x23, 0x45, 0x67, 0x89};
+  std::vector<uint8_t> vk3_receive_data  {0x12, 0x23, 0x45, 0x67, 0x89};
 
-  // Use combination of put(uint8_t) and put(std::vector<uint8_t)
-  cosim_data.byte_queue_put(QID_TRANSMIT, vk[1], vk1_transmit_data[0]);
-  cosim_data.byte_queue_put(QID_TRANSMIT, vk[1], vk1_transmit_data[1]);
-  cosim_data.byte_queue_put(QID_TRANSMIT, vk[1], std::vector(vk1_transmit_data.begin()+2, vk1_transmit_data.end()));
+  // Mix of single-byte puts and vector puts
+  cosim_data.StreamQueuePutByte(QID_TRANSMIT, vk[1], vk1_transmit_data[0], false);
+  cosim_data.StreamQueuePutByte(QID_TRANSMIT, vk[1], vk1_transmit_data[1], false);
+  cosim_data.StreamQueuePutPacket(QID_TRANSMIT, vk[1],
+    std::vector(vk1_transmit_data.begin()+2, vk1_transmit_data.end()));
 
-  cosim_data.byte_queue_put(QID_RECEIVE, vk[1], vk1_receive_data[0]);
-  cosim_data.byte_queue_put(QID_RECEIVE, vk[1], std::vector(vk1_receive_data.begin()+1, vk1_receive_data.end()-1));
-  cosim_data.byte_queue_put(QID_RECEIVE, vk[1], vk1_receive_data[4]);
+  cosim_data.StreamQueuePutByte(QID_RECEIVE, vk[1], vk1_receive_data[0], false);
+  cosim_data.StreamQueuePutPacket(QID_RECEIVE, vk[1],
+    std::vector(vk1_receive_data.begin()+1, vk1_receive_data.end()-1));
+  cosim_data.StreamQueuePutByte(QID_RECEIVE, vk[1], vk1_receive_data[4], false);
 
-  cosim_data.byte_queue_put(QID_TRANSMIT, vk[2], vk2_transmit_data);
-  cosim_data.byte_queue_put(QID_RECEIVE, vk[3], vk3_receive_data);
+  cosim_data.StreamQueuePutPacket(QID_TRANSMIT, vk[2], vk2_transmit_data);
+  cosim_data.StreamQueuePutPacket(QID_RECEIVE,  vk[3], vk3_receive_data);
 
   INFO("Check queue sizes");
   for (int i = 0; i < 5; i++) {
-    // Check transmit queue size/empty
     switch (i) {
       case 1:
-	REQUIRE_FALSE(cosim_data.byte_queue_empty(QID_TRANSMIT, vk[i]));
-	REQUIRE(cosim_data.byte_queue_size(QID_TRANSMIT, vk[i]) == vk1_transmit_data.size());
-	break;
+        REQUIRE_FALSE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, vk[i]));
+        REQUIRE(cosim_data.StreamQueueSize(QID_TRANSMIT, vk[i]) == vk1_transmit_data.size());
+        break;
       case 2:
-	REQUIRE_FALSE(cosim_data.byte_queue_empty(QID_TRANSMIT, vk[i]));
-	REQUIRE(cosim_data.byte_queue_size(QID_TRANSMIT, vk[i]) == vk2_transmit_data.size());
-	break;
+        REQUIRE_FALSE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, vk[i]));
+        REQUIRE(cosim_data.StreamQueueSize(QID_TRANSMIT, vk[i]) == vk2_transmit_data.size());
+        break;
       default:
-	REQUIRE(cosim_data.byte_queue_empty(QID_TRANSMIT, vk[i]));
-	REQUIRE(cosim_data.byte_queue_size(QID_TRANSMIT, vk[i]) == 0);
-	break;
+        REQUIRE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, vk[i]));
+        REQUIRE(cosim_data.StreamQueueSize(QID_TRANSMIT, vk[i]) == 0);
+        break;
     }
 
-    // Check receive queue size/empty
     switch (i) {
       case 1:
-	REQUIRE_FALSE(cosim_data.byte_queue_empty(QID_RECEIVE, vk[i]));
-	REQUIRE(cosim_data.byte_queue_size(QID_RECEIVE, vk[i]) == vk1_receive_data.size());
-	break;
+        REQUIRE_FALSE(cosim_data.StreamQueueEmpty(QID_RECEIVE, vk[i]));
+        REQUIRE(cosim_data.StreamQueueSize(QID_RECEIVE, vk[i]) == vk1_receive_data.size());
+        break;
       case 3:
-	REQUIRE_FALSE(cosim_data.byte_queue_empty(QID_RECEIVE, vk[i]));
-	REQUIRE(cosim_data.byte_queue_size(QID_RECEIVE, vk[i]) == vk3_receive_data.size());
-	break;
+        REQUIRE_FALSE(cosim_data.StreamQueueEmpty(QID_RECEIVE, vk[i]));
+        REQUIRE(cosim_data.StreamQueueSize(QID_RECEIVE, vk[i]) == vk3_receive_data.size());
+        break;
       default:
-	REQUIRE(cosim_data.byte_queue_empty(QID_RECEIVE, vk[i]));
-	REQUIRE(cosim_data.byte_queue_size(QID_RECEIVE, vk[i]) == 0);
-	break;
+        REQUIRE(cosim_data.StreamQueueEmpty(QID_RECEIVE, vk[i]));
+        REQUIRE(cosim_data.StreamQueueSize(QID_RECEIVE, vk[i]) == 0);
+        break;
     }
   }
 
   INFO("Get data from queues");
 
-  // Get all bytes from vk[1] transmit queue
-  std::vector<uint8_t> data = cosim_data.byte_queue_get(QID_TRANSMIT, vk[1], 0);
+  // Get all bytes from vk[1] transmit queue (num_bytes=0 means "all available")
+  std::vector<uint8_t> data = cosim_data.StreamQueueGetPacket(QID_TRANSMIT, vk[1], 0);
   REQUIRE(data == vk1_transmit_data);
-  REQUIRE(cosim_data.byte_queue_empty(QID_TRANSMIT, vk[1]));
+  REQUIRE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, vk[1]));
 
   // Fetch one byte from vk[2] transmit queue...
-  byte = cosim_data.byte_queue_get(QID_TRANSMIT, vk[2]);
+  byte = cosim_data.StreamQueueGetByte(QID_TRANSMIT, vk[2]);
   REQUIRE(byte.has_value());
-  REQUIRE(byte.value() == vk2_transmit_data[0]);
-  REQUIRE(cosim_data.byte_queue_size(QID_TRANSMIT, vk[2]) == vk2_transmit_data.size()-1);
-  REQUIRE_FALSE(cosim_data.byte_queue_empty(QID_TRANSMIT, vk[2]));
+  REQUIRE(byte.value().first == vk2_transmit_data[0]);
+  REQUIRE(cosim_data.StreamQueueSize(QID_TRANSMIT, vk[2]) == vk2_transmit_data.size()-1);
+  REQUIRE_FALSE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, vk[2]));
 
   // ... then one byte from vk[3] receive queue ...
-  byte = cosim_data.byte_queue_get(QID_RECEIVE, vk[3]);
+  byte = cosim_data.StreamQueueGetByte(QID_RECEIVE, vk[3]);
   REQUIRE(byte.has_value());
-  REQUIRE(byte.value() == vk3_receive_data[0]);
-  REQUIRE(cosim_data.byte_queue_size(QID_RECEIVE, vk[3]) == vk3_receive_data.size()-1);
-  REQUIRE_FALSE(cosim_data.byte_queue_empty(QID_RECEIVE, vk[3]));
+  REQUIRE(byte.value().first == vk3_receive_data[0]);
+  REQUIRE(cosim_data.StreamQueueSize(QID_RECEIVE, vk[3]) == vk3_receive_data.size()-1);
+  REQUIRE_FALSE(cosim_data.StreamQueueEmpty(QID_RECEIVE, vk[3]));
 
   // ... then the rest from vk[2] transmit queue
-  data = cosim_data.byte_queue_get(QID_TRANSMIT, vk[2], 0);
+  data = cosim_data.StreamQueueGetPacket(QID_TRANSMIT, vk[2], 0);
   REQUIRE(data.size() == vk2_transmit_data.size()-1);
   REQUIRE(data == std::vector(vk2_transmit_data.begin()+1, vk2_transmit_data.end()));
-  REQUIRE(cosim_data.byte_queue_empty(QID_TRANSMIT, vk[2]));
+  REQUIRE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, vk[2]));
 
   // ... then the rest from vk[3] receive queue
-  data = cosim_data.byte_queue_get(QID_RECEIVE, vk[3], 0);
+  data = cosim_data.StreamQueueGetPacket(QID_RECEIVE, vk[3], 0);
   REQUIRE(data.size() == vk3_receive_data.size()-1);
   REQUIRE(data == std::vector(vk3_receive_data.begin()+1, vk3_receive_data.end()));
-  REQUIRE(cosim_data.byte_queue_empty(QID_RECEIVE, vk[3]));
+  REQUIRE(cosim_data.StreamQueueEmpty(QID_RECEIVE, vk[3]));
 
   // Get all but one byte from vk[1] receive queue
-  data = cosim_data.byte_queue_get(QID_RECEIVE, vk[1], vk1_receive_data.size()-1);
+  data = cosim_data.StreamQueueGetPacket(QID_RECEIVE, vk[1], (int)vk1_receive_data.size()-1);
   REQUIRE(data.size() == vk1_receive_data.size()-1);
   REQUIRE(data == std::vector(vk1_receive_data.begin(), vk1_receive_data.end()-1));
 
   // Fetch the last byte from vk[1] receive queue
-  byte = cosim_data.byte_queue_get(QID_RECEIVE, vk[1]);
+  byte = cosim_data.StreamQueueGetByte(QID_RECEIVE, vk[1]);
   REQUIRE(byte.has_value());
-  REQUIRE(byte.value() == vk1_receive_data.back());
-
+  REQUIRE(byte.value().first == vk1_receive_data.back());
 
   INFO("Check that all queues are now empty");
   for (int i = 0; i < 5; i++) {
-    REQUIRE(cosim_data.byte_queue_empty(QID_RECEIVE, vk[i]));
-    REQUIRE(cosim_data.byte_queue_empty(QID_TRANSMIT, vk[i]));
+    REQUIRE(cosim_data.StreamQueueEmpty(QID_RECEIVE,  vk[i]));
+    REQUIRE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, vk[i]));
   }
 }
 

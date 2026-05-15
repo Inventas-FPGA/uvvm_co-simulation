@@ -19,8 +19,9 @@ set(VSIM_PATH "/opt/intelFPGA_pro/24.3.1/questa_fse")
 add_library(uvvm_cosim_vhpi SHARED
             src/cpp/uvvm_cosim_data.cpp
             src/cpp/uvvm_cosim_server.cpp
-	    src/cpp/uvvm_cosim_common.cpp
-            src/cpp/uvvm_cosim_foreign_vhpi.cpp)
+            src/cpp/uvvm_cosim_common.cpp
+            src/cpp/uvvm_cosim_foreign_vhpi.cpp
+            src/cpp/vvc/vvc_factory.cpp)
 target_compile_definitions(uvvm_cosim_vhpi PRIVATE VHPI)
 target_include_directories(uvvm_cosim_vhpi PRIVATE thirdparty/json-rpc-cxx/include thirdparty/json-rpc-cxx/vendor thirdparty/json-rpc-cxx/examples ${NVC_PATH}/include)
 target_link_options(uvvm_cosim_vhpi PRIVATE -static-libgcc -static-libstdc++)
@@ -32,8 +33,9 @@ set_property(TARGET uvvm_cosim_vhpi PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_library(uvvm_cosim_fli SHARED
             src/cpp/uvvm_cosim_data.cpp
             src/cpp/uvvm_cosim_server.cpp
-	    src/cpp/uvvm_cosim_common.cpp
-            src/cpp/uvvm_cosim_foreign_fli.cpp)
+            src/cpp/uvvm_cosim_common.cpp
+            src/cpp/uvvm_cosim_foreign_fli.cpp
+            src/cpp/vvc/vvc_factory.cpp)
 target_compile_definitions(uvvm_cosim_fli PRIVATE FLI)
 target_include_directories(uvvm_cosim_fli PRIVATE thirdparty/json-rpc-cxx/include thirdparty/json-rpc-cxx/vendor thirdparty/json-rpc-cxx/examples ${VSIM_PATH}/include)
 

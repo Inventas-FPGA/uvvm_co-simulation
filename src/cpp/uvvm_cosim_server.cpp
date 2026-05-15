@@ -7,368 +7,330 @@
 #include "uvvm_cosim_server.hpp"
 #include "uvvm_cosim_types.hpp"
 
-// Split a string by delimiter into substrings.
-// Unnecessary leading/trailing and extra delimiters are removed
+// Split a string by delimiter into substrings, ignoring empty tokens.
 static std::vector<std::string> split_str(std::string str, std::string delim)
 {
   std::vector<std::string> str_list;
-
   size_t next_pos;
-
   while ((next_pos = str.find_first_not_of(delim)) != std::string::npos) {
     str.erase(0, next_pos);
-
     size_t delim_pos = str.find_first_of(delim);
     str_list.push_back(str.substr(0, delim_pos));
     str.erase(0, delim_pos);
   }
-
   return str_list;
 }
 
-// Search a comma-separated string for config values
-// Each config value must be a key/value pair formatted as "key=value"
-// Only integers are supported for value (use 0/1 for bool).
-// Example string:
-// "packet_based=1,enabled=0,timeout=1000"
+// Parse "key=value,key=value,..." into a map. Values must be integers.
 static std::map<std::string, int> parse_bfm_cfg_str(const std::string& cfg_str)
 {
   std::map<std::string, int> bfm_cfg;
-
   try {
-    auto cfg_items = split_str(cfg_str, ",");
-
-    for (auto &cfg_item : cfg_items) {
-
-      std::cout << "cfg_item=\"" << cfg_item << "\"" << std::endl;
-
-      auto cfg_key_val = split_str(cfg_item, "=");
-
-      if (cfg_key_val.size() != 2) {
-        std::cerr << "Error parsing config item" << std::endl;
-        continue;
-      }
-
-      std::string cfg_key = cfg_key_val[0];
-      int cfg_val = std::stoi(cfg_key_val[1]);
-
-      bfm_cfg.emplace(cfg_key, cfg_val);
+    for (auto& item : split_str(cfg_str, ",")) {
+      auto kv = split_str(item, "=");
+      if (kv.size() != 2) continue;
+      bfm_cfg.emplace(kv[0], std::stoi(kv[1]));
     }
-
-  } catch (std::exception &e) {
-    std::cerr << "Exception processing config string \"" << cfg_str << "\".";
-    std::cerr << "Reason=" << e.what() << std::endl;
+  } catch (std::exception& e) {
+    std::cerr << "Exception parsing bfm_cfg string \"" << cfg_str
+              << "\": " << e.what() << std::endl;
   }
-
   return bfm_cfg;
 }
 
 namespace uvvm_cosim {
 
-void
-UvvmCosimServer::WaitForStartSim()
+// ---------------------------------------------------------------------------
+// Helper: build a VvcIdentifier from string params
+// ---------------------------------------------------------------------------
+
+VvcIdentifier UvvmCosimServer::makeId(const std::string& vvc_type, VvcChannel channel,
+                                       int vvc_instance_id) const
+{
+  return VvcIdentifier(to_VvcTypes(vvc_type), channel, vvc_instance_id);
+}
+
+// ---------------------------------------------------------------------------
+// VHPI/FLI interface methods
+// ---------------------------------------------------------------------------
+
+void UvvmCosimServer::WaitForStartSim()
 {
   using namespace std::chrono_literals;
-
-  while (!cosimData.getStartSim() && !cosimData.getTerminateSim()) {
+  while (!getStartSim() && !getTerminateSim()) {
     std::this_thread::sleep_for(10ms);
   }
 }
 
-bool
-UvvmCosimServer::ShouldTerminateSim()
+bool UvvmCosimServer::ShouldTerminateSim()
 {
-  return cosimData.getTerminateSim();
+  return getTerminateSim();
 }
 
-bool
-UvvmCosimServer::VvcListenEnabled(std::string vvc_type,
-				  int vvc_instance_id)
+bool UvvmCosimServer::VvcListenEnabled(std::string vvc_type, int vvc_instance_id)
 {
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = (vvc_type == "UART_VVC" ? "RX" : "NA"),
-    .vvc_instance_id = vvc_instance_id
-  };
-
-  // Note: GetVvcListenEnable will throw if vvc does not exist
-  return cosimData.GetVvcListenEnable(vvc);
+  VvcChannel channel = (vvc_type == "UART_VVC") ? VvcChannel::RX : VvcChannel::NA;
+  try {
+    return GetVvcListenEnable(makeId(vvc_type, channel, vvc_instance_id));
+  } catch (...) {
+    return false;
+  }
 }
 
-void
-UvvmCosimServer::AddVvc(std::string vvc_type, std::string vvc_channel,
-			int vvc_instance_id, std::string bfm_cfg_str)
+void UvvmCosimServer::AddVvc(std::string vvc_type, std::string vvc_channel,
+                              int vvc_instance_id, std::string bfm_cfg_str)
 {
   auto bfm_cfg = parse_bfm_cfg_str(bfm_cfg_str);
-
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = vvc_channel,
-    .vvc_instance_id = vvc_instance_id
-  };
-
-  // Note: Throws if vvc exists already
-  cosimData.AddVvc(vvc, bfm_cfg);
+  UvvmCosimData::AddVvc(vvc_type, vvc_channel, vvc_instance_id, bfm_cfg);
 }
 
-bool
-UvvmCosimServer::TransmitQueueEmpty(std::string vvc_type,
-				    int vvc_instance_id)
+bool UvvmCosimServer::TransmitQueueEmpty(std::string vvc_type, int vvc_instance_id)
 {
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = (vvc_type == "UART_VVC" ? "TX" : "NA"),
-    .vvc_instance_id = vvc_instance_id
-  };
-
-  return cosimData.byte_queue_empty(QID_TRANSMIT, vvc);
+  VvcChannel channel = (vvc_type == "UART_VVC") ? VvcChannel::TX : VvcChannel::NA;
+  try {
+    return StreamQueueEmpty(QID_TRANSMIT, makeId(vvc_type, channel, vvc_instance_id));
+  } catch (...) {
+    return true;
+  }
 }
 
-std::optional<uint8_t>
-UvvmCosimServer::TransmitQueueGet(std::string vvc_type,
-				  int vvc_instance_id)
+std::optional<uint8_t> UvvmCosimServer::TransmitQueueGet(std::string vvc_type, int vvc_instance_id)
 {
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = (vvc_type == "UART_VVC" ? "TX" : "NA"),
-    .vvc_instance_id = vvc_instance_id
-  };
-
-  return cosimData.byte_queue_get(QID_TRANSMIT, vvc);
+  VvcChannel channel = (vvc_type == "UART_VVC") ? VvcChannel::TX : VvcChannel::NA;
+  try {
+    auto result = StreamQueueGetByte(QID_TRANSMIT, makeId(vvc_type, channel, vvc_instance_id));
+    if (result) return result.value().first;
+  } catch (...) {}
+  return std::nullopt;
 }
 
-void UvvmCosimServer::ReceiveQueuePut(std::string vvc_type,
-				      int vvc_instance_id,
-				      uint8_t byte)
+void UvvmCosimServer::ReceiveQueuePut(std::string vvc_type, int vvc_instance_id, uint8_t byte)
 {
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = (vvc_type == "UART_VVC" ? "RX" : "NA"),
-    .vvc_instance_id = vvc_instance_id
-  };
-
-  cosimData.byte_queue_put(QID_RECEIVE, vvc, byte);
+  VvcChannel channel = (vvc_type == "UART_VVC") ? VvcChannel::RX : VvcChannel::NA;
+  try {
+    StreamQueuePutByte(QID_RECEIVE, makeId(vvc_type, channel, vvc_instance_id), byte, false);
+  } catch (...) {}
 }
 
 bool UvvmCosimServer::TransmitPacketQueueEmpty(std::string vvc_type, int vvc_instance_id)
 {
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = "NA",
-    .vvc_instance_id = vvc_instance_id
-  };
-
-  return cosimData.packet_queue_empty(QID_TRANSMIT, vvc);
+  try {
+    return StreamQueueEmpty(QID_TRANSMIT, makeId(vvc_type, VvcChannel::NA, vvc_instance_id));
+  } catch (...) {
+    return true;
+  }
 }
 
-auto UvvmCosimServer::TransmitPacketQueueGet(std::string vvc_type, int vvc_instance_id) -> std::optional<std::pair<uint8_t, bool>>
+auto UvvmCosimServer::TransmitPacketQueueGet(std::string vvc_type, int vvc_instance_id)
+    -> std::optional<std::pair<uint8_t, bool>>
 {
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = "NA",
-    .vvc_instance_id = vvc_instance_id
-  };
-
-  return cosimData.packet_queue_get_byte(QID_TRANSMIT, vvc);
+  try {
+    return StreamQueueGetByte(QID_TRANSMIT, makeId(vvc_type, VvcChannel::NA, vvc_instance_id));
+  } catch (...) {
+    return std::nullopt;
+  }
 }
 
-void UvvmCosimServer::ReceivePacketQueuePut(std::string vvc_type, int vvc_instance_id, uint8_t byte, bool eop)
+void UvvmCosimServer::ReceivePacketQueuePut(std::string vvc_type, int vvc_instance_id,
+                                             uint8_t byte, bool eop)
 {
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = "NA",
-    .vvc_instance_id = vvc_instance_id
-  };
-
-  cosimData.packet_queue_put_byte(QID_RECEIVE, vvc, byte, eop);
+  try {
+    StreamQueuePutByte(QID_RECEIVE, makeId(vvc_type, VvcChannel::NA, vvc_instance_id), byte, eop);
+  } catch (...) {}
 }
 
+// ---------------------------------------------------------------------------
+// JSON-RPC procedures — simulation control
+// ---------------------------------------------------------------------------
 
-JsonResponse
-UvvmCosimServer::StartSim()
+JsonResponse UvvmCosimServer::StartSim()
 {
-  cosimData.setStartSim(true);
-
-  JsonResponse response = {
-    .success = true
-  };
-
-  return response;
+  setStartSim(true);
+  return {.success = true};
 }
 
-JsonResponse
-UvvmCosimServer::PauseSim()
+JsonResponse UvvmCosimServer::PauseSim()
 {
-  cosimData.setStartSim(false);
-
-  JsonResponse response = {
-    .success = true
-  };
-
-  return response;
+  setStartSim(false);
+  return {.success = true};
 }
 
-JsonResponse
-UvvmCosimServer::TerminateSim()
+JsonResponse UvvmCosimServer::TerminateSim()
 {
-  cosimData.setTerminateSim(true);
-
-  std::cout << std::endl << std::endl << std::endl;
-  std::cout << "TERMINATING SIM!!!" << std::endl << std::endl << std::endl;
-
-  JsonResponse response = {
-    .success = true
-  };
-
-  return response;
+  setTerminateSim(true);
+  std::cout << "\n\nTERMINATING SIM!!!\n\n";
+  return {.success = true};
 }
 
-JsonResponse
-UvvmCosimServer::GetVvcList()
-{
-  std::vector<VvcInstance> vec = cosimData.GetVvcList();
+// ---------------------------------------------------------------------------
+// JSON-RPC procedures — VVC management
+// ---------------------------------------------------------------------------
 
+JsonResponse UvvmCosimServer::GetVvcList()
+{
+  std::vector<VvcInfo> vec = UvvmCosimData::GetVvcList();
   JsonResponse response;
-  
   response.success = true;
-  response.result = json(vec);
-
+  response.result  = json(vec);
   return response;
 }
 
-JsonResponse
-UvvmCosimServer::SetVvcListenEnable(std::string vvc_type, int vvc_id, bool enable)
+JsonResponse UvvmCosimServer::SetVvcListenEnable(std::string vvc_type, int vvc_id, bool enable)
 {
+  VvcChannel channel = (vvc_type == "UART_VVC") ? VvcChannel::RX : VvcChannel::NA;
   JsonResponse response;
-
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = (vvc_type == "UART_VVC" ? "RX" : "NA"),
-    .vvc_instance_id = vvc_id
-  };
-
   try {
-    cosimData.SetVvcListenEnable(vvc, enable);
+    UvvmCosimData::SetVvcListenEnable(makeId(vvc_type, channel, vvc_id), enable);
     response.success = true;
-  }
-  catch (const std::runtime_error& e) {
+  } catch (const std::exception& e) {
     response.success = false;
-    response.result = json{{"error", e.what()}};
+    response.result  = json{{"error", e.what()}};
   }
-
   return response;
 }
 
-JsonResponse
-UvvmCosimServer::TransmitBytes(std::string vvc_type, int vvc_id, std::vector<uint8_t> data)
+// ---------------------------------------------------------------------------
+// JSON-RPC procedures — streaming VVCs
+// ---------------------------------------------------------------------------
+
+JsonResponse UvvmCosimServer::TransmitBytes(std::string vvc_type, int vvc_id,
+                                             std::vector<uint8_t> data)
 {
+  VvcChannel channel = (vvc_type == "UART_VVC") ? VvcChannel::TX : VvcChannel::NA;
   JsonResponse response;
-
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = (vvc_type == "UART_VVC" ? "TX" : "NA"),
-    .vvc_instance_id = vvc_id
-  };
-
   try {
-    cosimData.byte_queue_put(QID_TRANSMIT, vvc, data);
+    StreamQueuePutPacket(QID_TRANSMIT, makeId(vvc_type, channel, vvc_id), data);
     response.success = true;
-  }
-  catch (const std::runtime_error& e) {
+  } catch (const std::exception& e) {
     response.success = false;
-    response.result = json{{"error", e.what()}};
+    response.result  = json{{"error", e.what()}};
   }
-
   return response;
 }
 
-JsonResponse
-UvvmCosimServer::TransmitPacket(std::string vvc_type, int vvc_id, std::vector<uint8_t> data)
+JsonResponse UvvmCosimServer::TransmitPacket(std::string vvc_type, int vvc_id,
+                                              std::vector<uint8_t> data)
 {
   JsonResponse response;
-
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = "NA",
-    .vvc_instance_id = vvc_id
-  };
-
   try {
-    cosimData.packet_queue_put_pkt(QID_TRANSMIT, vvc, data);
+    StreamQueuePutPacket(QID_TRANSMIT, makeId(vvc_type, VvcChannel::NA, vvc_id), data);
     response.success = true;
-  }
-  catch (const std::runtime_error& e) {
+  } catch (const std::exception& e) {
     response.success = false;
-    response.result = json{{"error", e.what()}};
+    response.result  = json{{"error", e.what()}};
   }
-
   return response;
 }
 
-JsonResponse
-UvvmCosimServer::ReceiveBytes(std::string vvc_type, int vvc_id, int num_bytes, bool exact_length)
+JsonResponse UvvmCosimServer::ReceiveBytes(std::string vvc_type, int vvc_id,
+                                            int num_bytes, bool exact_length)
 {
+  VvcChannel channel = (vvc_type == "UART_VVC") ? VvcChannel::RX : VvcChannel::NA;
   JsonResponse response;
-
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = (vvc_type == "UART_VVC" ? "RX" : "NA"),
-    .vvc_instance_id = vvc_id
-  };
-
   try {
+    auto id = makeId(vvc_type, channel, vvc_id);
     std::vector<uint8_t> data;
-    bool empty = cosimData.byte_queue_empty(QID_RECEIVE, vvc);
-
-    if (!empty && exact_length) {
-      size_t size = cosimData.byte_queue_size(QID_RECEIVE, vvc);
-
-      if (size >= num_bytes) {
-        data = cosimData.byte_queue_get(QID_RECEIVE, vvc, num_bytes);
+    if (!StreamQueueEmpty(QID_RECEIVE, id)) {
+      if (exact_length) {
+        if (StreamQueueSize(QID_RECEIVE, id) >= static_cast<size_t>(num_bytes)) {
+          data = StreamQueueGetPacket(QID_RECEIVE, id, num_bytes);
+        }
+      } else {
+        data = StreamQueueGetPacket(QID_RECEIVE, id, num_bytes);
       }
-    } else if (!empty && !exact_length) {
-      data = cosimData.byte_queue_get(QID_RECEIVE, vvc, num_bytes);
     }
-
     response.success = true;
-    response.result = json{{"data", data}};
-  }
-  catch (const std::runtime_error& e) {
+    response.result  = json{{"data", data}};
+  } catch (const std::exception& e) {
     response.success = false;
-    response.result = json{{"error", e.what()}};
+    response.result  = json{{"error", e.what()}};
   }
-
   return response;
 }
 
-JsonResponse
-UvvmCosimServer::ReceivePacket(std::string vvc_type, int vvc_id)
+JsonResponse UvvmCosimServer::ReceivePacket(std::string vvc_type, int vvc_id)
+{
+  VvcChannel channel = (vvc_type == "UART_VVC") ? VvcChannel::RX : VvcChannel::NA;
+  JsonResponse response;
+  try {
+    auto id = makeId(vvc_type, channel, vvc_id);
+    std::vector<uint8_t> pkt;
+    if (!StreamQueueEmpty(QID_RECEIVE, id)) {
+      pkt = StreamQueueGetPacket(QID_RECEIVE, id, 0);
+    }
+    response.success = true;
+    response.result  = json{{"data", pkt}};
+  } catch (const std::exception& e) {
+    response.success = false;
+    response.result  = json{{"error", e.what()}};
+  }
+  return response;
+}
+
+// ---------------------------------------------------------------------------
+// JSON-RPC procedures — memory-mapped VVCs
+// ---------------------------------------------------------------------------
+
+JsonResponse UvvmCosimServer::WriteRequest(std::string vvc_type, int vvc_id, uint64_t addr,
+                                            std::vector<uint8_t> data, bool addr_increment)
 {
   JsonResponse response;
-
-  VvcInstanceKey vvc = {
-    .vvc_type = vvc_type,
-    .vvc_channel = (vvc_type == "UART_VVC" ? "RX" : "NA"),
-    .vvc_instance_id = vvc_id
-  };
-
   try {
-    std::vector<uint8_t> pkt;
-
-    if(!cosimData.packet_queue_empty(QID_RECEIVE, vvc)) {
-      pkt = cosimData.packet_queue_get_pkt(QID_RECEIVE, vvc);
-    }
-
+    Transfer trans{addr, std::move(data), addr_increment, 0};
+    MemQueuePut(QID_REQUEST, makeId(vvc_type, VvcChannel::NA, vvc_id), trans);
     response.success = true;
-    response.result = json{{"data", pkt}};
-  }
-  catch (const std::runtime_error& e) {
+  } catch (const std::exception& e) {
     response.success = false;
-    response.result = json{{"error", e.what()}};
+    response.result  = json{{"error", e.what()}};
   }
+  return response;
+}
 
+JsonResponse UvvmCosimServer::WriteResponse(std::string vvc_type, int vvc_id)
+{
+  JsonResponse response;
+  try {
+    auto trans = MemQueueGet(QID_RESPONSE, makeId(vvc_type, VvcChannel::NA, vvc_id));
+    response.success = true;
+    response.result  = json{{"available", trans.has_value()}};
+  } catch (const std::exception& e) {
+    response.success = false;
+    response.result  = json{{"error", e.what()}};
+  }
+  return response;
+}
+
+JsonResponse UvvmCosimServer::ReadRequest(std::string vvc_type, int vvc_id,
+                                           uint64_t addr, uint32_t num_bytes)
+{
+  JsonResponse response;
+  try {
+    Transfer trans{addr, {}, false, num_bytes};
+    MemQueuePut(QID_REQUEST, makeId(vvc_type, VvcChannel::NA, vvc_id), trans);
+    response.success = true;
+  } catch (const std::exception& e) {
+    response.success = false;
+    response.result  = json{{"error", e.what()}};
+  }
+  return response;
+}
+
+JsonResponse UvvmCosimServer::ReadResponse(std::string vvc_type, int vvc_id)
+{
+  JsonResponse response;
+  try {
+    auto trans = MemQueueGet(QID_RESPONSE, makeId(vvc_type, VvcChannel::NA, vvc_id));
+    response.success = true;
+    if (trans) {
+      response.result = json{{"data", trans.value().data}};
+    } else {
+      response.result = json{{"data", json::array()}};
+    }
+  } catch (const std::exception& e) {
+    response.success = false;
+    response.result  = json{{"error", e.what()}};
+  }
   return response;
 }
 
 } // namespace uvvm_cosim
-

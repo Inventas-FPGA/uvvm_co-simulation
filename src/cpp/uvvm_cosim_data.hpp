@@ -1,136 +1,99 @@
 #pragma once
 #include <atomic>
 #include <map>
+#include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 #include "shared_map.hpp"
 #include "uvvm_cosim_types.hpp"
+#include "vvc/vvc_stream_based.hpp"
+#include "vvc/vvc_mem_mapped.hpp"
 
 namespace uvvm_cosim {
 
-// VvcInstanceKey: Identifies VVC by type, channel, id
-// VvcInstanceData: Transmit+receive queue for VVC, config, etc.
-// VvcCompare: Comparator class for VvcInstanceKey
-using VvcMap = shared_map<VvcInstanceKey, VvcInstanceData, VvcCompare>;
-using VvcMapInternal = std::map<VvcInstanceKey, VvcInstanceData, VvcCompare>;
+using VvcMap = shared_map<VvcIdentifier, std::unique_ptr<VvcBase>, VvcCompare>;
 
 class UvvmCosimData {
 private:
   VvcMap vvcInstanceMap;
 
-  std::atomic<bool> startSim = false;
+  std::atomic<bool> startSim     = false;
   std::atomic<bool> terminateSim = false;
 
-private:
+  // Returns the VVC for the given identifier; throws if not found.
+  // Must be called from within a vvcInstanceMap lambda (map is already locked).
+  static VvcBase* findVvc(std::map<VvcIdentifier, std::unique_ptr<VvcBase>, VvcCompare>& m,
+                          const VvcIdentifier& id);
 
-  /////////////////////////////////////////////////////////////////////////////
-  // Byte queue private functions
-  /////////////////////////////////////////////////////////////////////////////
+  // As above but for const map access.
+  static const VvcBase* findVvc(const std::map<VvcIdentifier, std::unique_ptr<VvcBase>, VvcCompare>& m,
+                                const VvcIdentifier& id);
 
-  auto get_byte_queue(VvcMapInternal& vvc_map, VvcInstanceKey vvc, QueueId qid) -> ByteQueue&;
+  // Downcasts to VvcStreamBased; throws if VVC does not exist or is not stream-based.
+  static VvcStreamBased* getStreamVvc(std::map<VvcIdentifier, std::unique_ptr<VvcBase>, VvcCompare>& m,
+                                      const VvcIdentifier& id);
 
-  bool byte_queue_empty(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc);
-
-  size_t byte_queue_size(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc);
-
-  void byte_queue_put(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc, uint8_t byte);
-
-  void byte_queue_put(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc,
-                      const std::vector<uint8_t>& data);
-
-  auto byte_queue_get(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc) -> std::optional<uint8_t>;
-
-  auto byte_queue_get(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc, int num_bytes) -> std::vector<uint8_t>;
-
-
-  /////////////////////////////////////////////////////////////////////////////
-  // Packet queue private functions
-  /////////////////////////////////////////////////////////////////////////////
-
-  auto get_packet_queue(VvcMapInternal& vvc_map, VvcInstanceKey vvc, QueueId qid) -> PacketQueue&;
-
-  bool packet_queue_empty(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc);
-
-  size_t packet_queue_size(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc);
-
-  auto packet_queue_get_byte(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc) -> std::optional<std::pair<uint8_t, bool>>;
-
-  auto packet_queue_get_pkt(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc) -> std::vector<uint8_t>;
-
-  void packet_queue_put_byte(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc, uint8_t byte, bool eop);
-
-  void packet_queue_put_pkt(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc, const std::vector<uint8_t>& pkt);
+  // Downcasts to VvcMemMapped; throws if VVC does not exist or is not mem-mapped.
+  static VvcMemMapped* getMemVvc(std::map<VvcIdentifier, std::unique_ptr<VvcBase>, VvcCompare>& m,
+                                 const VvcIdentifier& id);
 
 public:
-  UvvmCosimData() {}
-
-  ~UvvmCosimData() {}
-
-  /////////////////////////////////////////////////////////////////////////////
-  // Getters/setters for flags
-  /////////////////////////////////////////////////////////////////////////////
-
-  void setStartSim(bool value) {
-    startSim = value;
-  }
-
-  bool getStartSim() const {
-    return startSim;
-  }
-
-  void setTerminateSim(bool value) {
-    terminateSim = value;
-  }
-
-  bool getTerminateSim() const {
-    return terminateSim;
-  }
+  UvvmCosimData()  = default;
+  ~UvvmCosimData() = default;
 
   /////////////////////////////////////////////////////////////////////////////
-  // VVC list public functions
+  // Simulation control flags
   /////////////////////////////////////////////////////////////////////////////
 
-  void AddVvc(VvcInstanceKey vvc, std::map<std::string, int> bfm_cfg);
-
-  std::vector<VvcInstance> GetVvcList() const;
-
-  void SetVvcListenEnable(VvcInstanceKey vvc, bool enable);
-
-  bool GetVvcListenEnable(VvcInstanceKey vvc) const;
+  void setStartSim(bool value)    { startSim     = value; }
+  bool getStartSim()    const     { return startSim;      }
+  void setTerminateSim(bool value){ terminateSim = value; }
+  bool getTerminateSim()const     { return terminateSim;  }
 
   /////////////////////////////////////////////////////////////////////////////
-  // Byte queue public functions
+  // VVC registry
   /////////////////////////////////////////////////////////////////////////////
 
-  bool byte_queue_empty(QueueId qid, VvcInstanceKey vvc);
+  // Parse bfm_cfg string and create the appropriate VVC object via VvcFactory.
+  // Unknown VVC types (e.g. CLOCK_GENERATOR_VVC) are silently ignored.
+  void AddVvc(const std::string& vvc_type, const std::string& vvc_channel,
+              int vvc_instance_id, const std::map<std::string, int>& bfm_cfg);
 
-  size_t byte_queue_size(QueueId qid, VvcInstanceKey vvc);
+  std::vector<VvcInfo> GetVvcList() const;
 
-  void byte_queue_put(QueueId qid, VvcInstanceKey vvc, uint8_t byte);
-
-  void byte_queue_put(QueueId qid, VvcInstanceKey vvc, const std::vector<uint8_t>& data);
-
-  auto byte_queue_get(QueueId qid, VvcInstanceKey vvc) -> std::optional<uint8_t>;
-
-  auto byte_queue_get(QueueId qid, VvcInstanceKey vvc, int num_bytes) -> std::vector<uint8_t>;
-
+  void SetVvcListenEnable(const VvcIdentifier& vvc, bool enable);
+  bool GetVvcListenEnable(const VvcIdentifier& vvc) const;
 
   /////////////////////////////////////////////////////////////////////////////
-  // Packet queue public functions
+  // Stream-based VVC queue API
+  // Both byte-stream and packet-stream VVCs share this interface via virtual dispatch.
   /////////////////////////////////////////////////////////////////////////////
-  bool packet_queue_empty(QueueId qid, VvcInstanceKey vvc);
 
-  size_t packet_queue_size(QueueId qid, VvcInstanceKey vvc);
+  bool   StreamQueueEmpty(QueueId qid, const VvcIdentifier& vvc);
+  size_t StreamQueueSize(QueueId qid, const VvcIdentifier& vvc);
 
-  auto packet_queue_get_byte(QueueId qid, VvcInstanceKey vvc) -> std::optional<std::pair<uint8_t, bool>>;
+  void   StreamQueuePutByte(QueueId qid, const VvcIdentifier& vvc, uint8_t byte, bool eop);
+  void   StreamQueuePutPacket(QueueId qid, const VvcIdentifier& vvc, const std::vector<uint8_t>& pkt);
 
-  auto packet_queue_get_pkt(QueueId qid, VvcInstanceKey vvc) -> std::vector<uint8_t>;
+  // Get next byte: eop is always false for byte-stream VVCs.
+  auto   StreamQueueGetByte(QueueId qid, const VvcIdentifier& vvc)
+           -> std::optional<std::pair<uint8_t, bool>>;
 
-  void packet_queue_put_byte(QueueId qid, VvcInstanceKey vvc, uint8_t byte, bool eop);
+  // For byte-stream VVCs returns up to num_bytes bytes.
+  // For packet-stream VVCs returns the next complete packet (num_bytes ignored).
+  auto   StreamQueueGetPacket(QueueId qid, const VvcIdentifier& vvc, int num_bytes)
+           -> std::vector<uint8_t>;
 
-  void packet_queue_put_pkt(QueueId qid, VvcInstanceKey vvc, const std::vector<uint8_t>& pkt);
+  /////////////////////////////////////////////////////////////////////////////
+  // Memory-mapped VVC queue API
+  /////////////////////////////////////////////////////////////////////////////
+
+  void MemQueuePut(QueueId qid, const VvcIdentifier& vvc, const Transfer& transfer);
+  auto MemQueueGet(QueueId qid, const VvcIdentifier& vvc) -> std::optional<Transfer>;
+  bool MemQueueEmpty(QueueId qid, const VvcIdentifier& vvc);
 };
 
 } // namespace uvvm_cosim

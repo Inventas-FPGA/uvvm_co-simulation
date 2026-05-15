@@ -1,233 +1,204 @@
-#include <map>
 #include <stdexcept>
 #include <string>
-#include <vector>
 #include "uvvm_cosim_data.hpp"
+#include "vvc/vvc_factory.hpp"
+#include "vvc/vvc_stream_based.hpp"
+#include "vvc/vvc_mem_mapped.hpp"
 
 namespace uvvm_cosim {
 
-  /////////////////////////////////////////////////////////////////////////////
-  // Byte queue private functions
-  /////////////////////////////////////////////////////////////////////////////
+// ---------------------------------------------------------------------------
+// Private map-access helpers (called from within a locked vvcInstanceMap lambda)
+// ---------------------------------------------------------------------------
 
-  auto UvvmCosimData::get_byte_queue(VvcMapInternal& vvc_map, VvcInstanceKey vvc, QueueId qid) -> ByteQueue&
-  {
-    if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
-      if (it->second.cfg.packet_based) {
-	throw std::runtime_error("Tried to access byte queue for packet-based VVC " + to_string(vvc) + ".");
-      }
-      return it->second.byte_queues[qid];
+VvcBase* UvvmCosimData::findVvc(
+    std::map<VvcIdentifier, std::unique_ptr<VvcBase>, VvcCompare>& m,
+    const VvcIdentifier& id)
+{
+  auto it = m.find(id);
+  if (it == m.end()) {
+    throw std::runtime_error("VVC " + to_string(id) + " does not exist.");
+  }
+  return it->second.get();
+}
+
+const VvcBase* UvvmCosimData::findVvc(
+    const std::map<VvcIdentifier, std::unique_ptr<VvcBase>, VvcCompare>& m,
+    const VvcIdentifier& id)
+{
+  auto it = m.find(id);
+  if (it == m.end()) {
+    throw std::runtime_error("VVC " + to_string(id) + " does not exist.");
+  }
+  return it->second.get();
+}
+
+VvcStreamBased* UvvmCosimData::getStreamVvc(
+    std::map<VvcIdentifier, std::unique_ptr<VvcBase>, VvcCompare>& m,
+    const VvcIdentifier& id)
+{
+  auto* base = findVvc(m, id);
+  auto* stream = dynamic_cast<VvcStreamBased*>(base);
+  if (!stream) {
+    throw std::runtime_error("VVC " + to_string(id) + " is not a stream-based VVC.");
+  }
+  return stream;
+}
+
+VvcMemMapped* UvvmCosimData::getMemVvc(
+    std::map<VvcIdentifier, std::unique_ptr<VvcBase>, VvcCompare>& m,
+    const VvcIdentifier& id)
+{
+  auto* base = findVvc(m, id);
+  auto* mem = dynamic_cast<VvcMemMapped*>(base);
+  if (!mem) {
+    throw std::runtime_error("VVC " + to_string(id) + " is not a mem-mapped VVC.");
+  }
+  return mem;
+}
+
+// ---------------------------------------------------------------------------
+// VVC registry
+// ---------------------------------------------------------------------------
+
+void UvvmCosimData::AddVvc(const std::string& vvc_type, const std::string& vvc_channel,
+                            int vvc_instance_id,
+                            const std::map<std::string, int>& bfm_cfg)
+{
+  std::unique_ptr<VvcBase> vvc;
+  try {
+    vvc = VvcFactory::create(vvc_type, vvc_channel, vvc_instance_id, bfm_cfg);
+  } catch (const std::invalid_argument&) {
+    // Unknown VVC type (e.g. CLOCK_GENERATOR_VVC) — skip silently
+    return;
+  }
+
+  VvcIdentifier id(vvc->vvc_type, vvc->vvc_channel, vvc->vvc_instance_id);
+
+  vvcInstanceMap([&](auto& m) {
+    if (m.find(id) == m.end()) {
+      m.emplace(id, std::move(vvc));
     } else {
-      throw std::runtime_error("VVC " + to_string(vvc) + " does not exist.");
+      throw std::runtime_error("VVC " + to_string(id) + " already exists.");
     }
-  }
+  });
+}
 
-  bool UvvmCosimData::byte_queue_empty(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc)
-  {
-    return get_byte_queue(vvc_map, vvc, qid).empty();
-  }
+std::vector<VvcInfo> UvvmCosimData::GetVvcList() const
+{
+  std::vector<VvcInfo> result;
 
-  size_t UvvmCosimData::byte_queue_size(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc)
-  {
-    return get_byte_queue(vvc_map, vvc, qid).size();
-  }
+  vvcInstanceMap([&](const auto& m) {
+    for (const auto& [id, vvc] : m) {
+      VvcInfo info;
+      info.vvc_type        = to_string(vvc->vvc_type);
+      info.vvc_channel     = to_string(vvc->vvc_channel);
+      info.vvc_instance_id = vvc->vvc_instance_id;
+      info.listen_enable   = vvc->listen_enable;
+      info.cosim_support   = vvc->cosim_support;
+      info.bfm_cfg         = vvc->bfm_cfg;
 
-  void UvvmCosimData::byte_queue_put(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc, uint8_t byte)
-  {
-    get_byte_queue(vvc_map, vvc, qid).put(byte);
-  }
-
-  void UvvmCosimData::byte_queue_put(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc,
-                      const std::vector<uint8_t>& data)
-  {
-    get_byte_queue(vvc_map, vvc, qid).put(data);
-  }
-
-  auto UvvmCosimData::byte_queue_get(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc) -> std::optional<uint8_t>
-  {
-    return get_byte_queue(vvc_map, vvc, qid).get();
-  }
-
-  auto UvvmCosimData::byte_queue_get(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc, int num_bytes) -> std::vector<uint8_t>
-  {
-    return get_byte_queue(vvc_map, vvc, qid).get(num_bytes);
-  }
-
-
-  /////////////////////////////////////////////////////////////////////////////
-  // Packet queue private functions
-  /////////////////////////////////////////////////////////////////////////////
-
-  auto UvvmCosimData::get_packet_queue(VvcMapInternal& vvc_map, VvcInstanceKey vvc, QueueId qid) -> PacketQueue&
-  {
-    if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
-      if (!it->second.cfg.packet_based) {
-	throw std::runtime_error("Tried to access packet queue for non-packet based VVC " + to_string(vvc) + ".");
-      }
-      return it->second.packet_queues[qid];
-    } else {
-      throw std::runtime_error("VVC " + to_string(vvc) + " does not exist.");
-    }
-  }
-
-  bool UvvmCosimData::packet_queue_empty(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc)
-  {
-    return get_packet_queue(vvc_map, vvc, qid).empty();
-  }
-
-  size_t UvvmCosimData::packet_queue_size(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc)
-  {
-    return get_packet_queue(vvc_map, vvc, qid).size();
-  }
-
-  auto UvvmCosimData::packet_queue_get_byte(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc) -> std::optional<std::pair<uint8_t, bool>>
-  {
-    return get_packet_queue(vvc_map, vvc, qid).get_byte();
-  }
-
-  auto UvvmCosimData::packet_queue_get_pkt(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc) -> std::vector<uint8_t>
-  {
-    return get_packet_queue(vvc_map, vvc, qid).get_pkt();
-  }
-
-  void UvvmCosimData::packet_queue_put_byte(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc, uint8_t byte, bool eop)
-  {
-    get_packet_queue(vvc_map, vvc, qid).put_byte(byte, eop);
-  }
-
-  void UvvmCosimData::packet_queue_put_pkt(VvcMapInternal& vvc_map, QueueId qid, VvcInstanceKey vvc, const std::vector<uint8_t>& pkt)
-  {
-    get_packet_queue(vvc_map, vvc, qid).put_pkt(pkt);
-  }
-
-  /////////////////////////////////////////////////////////////////////////////
-  // VVC list public functions
-  /////////////////////////////////////////////////////////////////////////////
-
-  void UvvmCosimData::AddVvc(VvcInstanceKey vvc, std::map<std::string, int> bfm_cfg) {
-    VvcConfig cfg;
-
-    if (auto it = bfm_cfg.find("cosim_support"); it != bfm_cfg.end()) {
-      cfg.cosim_support = it->second == 0 ? false : true;
-      bfm_cfg.erase(it);
-    }
-
-    if (auto it = bfm_cfg.find("packet_based"); it != bfm_cfg.end()) {
-      cfg.packet_based = it->second == 0 ? false : true;
-      bfm_cfg.erase(it);
-    }
-
-    cfg.bfm_cfg = bfm_cfg;
-
-    vvcInstanceMap([&](auto &vvc_map) {
-      if (vvc_map.find(vvc) == vvc_map.end()) {
-        vvc_map.emplace(vvc, VvcInstanceData{.cfg = cfg});
+      // Extract packet_based from VvcStreamBased if applicable
+      if (auto* s = dynamic_cast<VvcStreamBased*>(vvc.get())) {
+        info.packet_based = s->packet_based;
       } else {
-        throw std::runtime_error("VVC " + to_string(vvc) + " exists already.");
+        info.packet_based = false;
       }
-    });
-  }
 
-  auto UvvmCosimData::GetVvcList() const -> std::vector<VvcInstance>
-  {
-    std::vector<VvcInstance> vec;
+      result.push_back(std::move(info));
+    }
+  });
 
-    vvcInstanceMap([&](auto &vvc_map) {
-      for (auto vvc : vvc_map) {
-        vec.push_back(VvcInstance(vvc.first, vvc.second.cfg));
-      }
-    });
+  return result;
+}
 
-    return vec;
-  }
+void UvvmCosimData::SetVvcListenEnable(const VvcIdentifier& vvc, bool enable)
+{
+  vvcInstanceMap([&](auto& m) {
+    findVvc(m, vvc)->listen_enable = enable;
+  });
+}
 
-  void UvvmCosimData::SetVvcListenEnable(VvcInstanceKey vvc, bool enable) {
-    vvcInstanceMap([&](auto &vvc_map) {
-      if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
-        it->second.cfg.listen_enable = enable;
-      } else {
-        throw std::runtime_error("VVC " + to_string(vvc) + " does not exist.");
-      }
-    });
-  }
+bool UvvmCosimData::GetVvcListenEnable(const VvcIdentifier& vvc) const
+{
+  return vvcInstanceMap([&](const auto& m) {
+    return findVvc(m, vvc)->listen_enable;
+  });
+}
 
-  bool UvvmCosimData::GetVvcListenEnable(VvcInstanceKey vvc) const {
-    bool listen = vvcInstanceMap([&](auto &vvc_map) {
-      if (auto it = vvc_map.find(vvc); it != vvc_map.end()) {
-        return it->second.cfg.listen_enable;
-      } else {
-        throw std::runtime_error("VVC " + to_string(vvc) + " does not exist.");
-      }
-    });
-    return listen;
-  }
+// ---------------------------------------------------------------------------
+// Stream-based VVC queue API
+// ---------------------------------------------------------------------------
 
-  /////////////////////////////////////////////////////////////////////////////
-  // Byte queue public functions
-  /////////////////////////////////////////////////////////////////////////////
+bool UvvmCosimData::StreamQueueEmpty(QueueId qid, const VvcIdentifier& vvc)
+{
+  return vvcInstanceMap([&](auto& m) {
+    return getStreamVvc(m, vvc)->QueueEmpty(qid);
+  });
+}
 
-  bool UvvmCosimData::byte_queue_empty(QueueId qid, VvcInstanceKey vvc)
-  {
-    return vvcInstanceMap([&](auto &vvc_map) {return byte_queue_empty(vvc_map, qid, vvc);});
-  }
+size_t UvvmCosimData::StreamQueueSize(QueueId qid, const VvcIdentifier& vvc)
+{
+  return vvcInstanceMap([&](auto& m) {
+    return getStreamVvc(m, vvc)->QueueSize(qid);
+  });
+}
 
-  size_t UvvmCosimData::byte_queue_size(QueueId qid, VvcInstanceKey vvc)
-  {
-    return vvcInstanceMap([&](auto &vvc_map) {return byte_queue_size(vvc_map, qid, vvc);});
-  }
+void UvvmCosimData::StreamQueuePutByte(QueueId qid, const VvcIdentifier& vvc,
+                                        uint8_t byte, bool eop)
+{
+  vvcInstanceMap([&](auto& m) {
+    getStreamVvc(m, vvc)->QueuePutByte(qid, byte, eop);
+  });
+}
 
-  void UvvmCosimData::byte_queue_put(QueueId qid, VvcInstanceKey vvc, uint8_t byte)
-  {
-    vvcInstanceMap([&](auto &vvc_map) {byte_queue_put(vvc_map, qid, vvc, byte);});
-  }
+void UvvmCosimData::StreamQueuePutPacket(QueueId qid, const VvcIdentifier& vvc,
+                                          const std::vector<uint8_t>& pkt)
+{
+  vvcInstanceMap([&](auto& m) {
+    getStreamVvc(m, vvc)->QueuePutPacket(qid, pkt);
+  });
+}
 
-  void UvvmCosimData::byte_queue_put(QueueId qid, VvcInstanceKey vvc, const std::vector<uint8_t>& data)
-  {
-    vvcInstanceMap([&](auto &vvc_map) {byte_queue_put(vvc_map, qid, vvc, data);});
-  }
+auto UvvmCosimData::StreamQueueGetByte(QueueId qid, const VvcIdentifier& vvc)
+    -> std::optional<std::pair<uint8_t, bool>>
+{
+  return vvcInstanceMap([&](auto& m) {
+    return getStreamVvc(m, vvc)->QueueGetByte(qid);
+  });
+}
 
-  auto UvvmCosimData::byte_queue_get(QueueId qid, VvcInstanceKey vvc) -> std::optional<uint8_t>
-  {
-    return vvcInstanceMap([&](auto &vvc_map) {return byte_queue_get(vvc_map, qid, vvc);});
-  }
+auto UvvmCosimData::StreamQueueGetPacket(QueueId qid, const VvcIdentifier& vvc, int num_bytes)
+    -> std::vector<uint8_t>
+{
+  return vvcInstanceMap([&](auto& m) {
+    return getStreamVvc(m, vvc)->QueueGetPacket(qid, num_bytes);
+  });
+}
 
-  auto UvvmCosimData::byte_queue_get(QueueId qid, VvcInstanceKey vvc, int num_bytes) -> std::vector<uint8_t>
-  {
-    return vvcInstanceMap([&](auto &vvc_map) {return byte_queue_get(vvc_map, qid, vvc, num_bytes);});
-  }
+// ---------------------------------------------------------------------------
+// Memory-mapped VVC queue API
+// ---------------------------------------------------------------------------
 
+void UvvmCosimData::MemQueuePut(QueueId qid, const VvcIdentifier& vvc, const Transfer& transfer)
+{
+  vvcInstanceMap([&](auto& m) {
+    getMemVvc(m, vvc)->QueuePut(qid, transfer);
+  });
+}
 
-  /////////////////////////////////////////////////////////////////////////////
-  // Packet queue public functions
-  /////////////////////////////////////////////////////////////////////////////
-  bool UvvmCosimData::packet_queue_empty(QueueId qid, VvcInstanceKey vvc)
-  {
-    return vvcInstanceMap([&](auto &vvc_map) {return packet_queue_empty(vvc_map, qid, vvc);});
-  }
+auto UvvmCosimData::MemQueueGet(QueueId qid, const VvcIdentifier& vvc) -> std::optional<Transfer>
+{
+  return vvcInstanceMap([&](auto& m) {
+    return getMemVvc(m, vvc)->QueueGet(qid);
+  });
+}
 
-  size_t UvvmCosimData::packet_queue_size(QueueId qid, VvcInstanceKey vvc)
-  {
-    return vvcInstanceMap([&](auto &vvc_map) {return packet_queue_size(vvc_map, qid, vvc);});
-  }
-
-  auto UvvmCosimData::packet_queue_get_byte(QueueId qid, VvcInstanceKey vvc) -> std::optional<std::pair<uint8_t, bool>>
-  {
-    return vvcInstanceMap([&](auto &vvc_map) {return packet_queue_get_byte(vvc_map, qid, vvc);});
-  }
-
-  auto UvvmCosimData::packet_queue_get_pkt(QueueId qid, VvcInstanceKey vvc) -> std::vector<uint8_t>
-  {
-    return vvcInstanceMap([&](auto &vvc_map) {return packet_queue_get_pkt(vvc_map, qid, vvc);});
-  }
-
-  void UvvmCosimData::packet_queue_put_byte(QueueId qid, VvcInstanceKey vvc, uint8_t byte, bool eop)
-  {
-    vvcInstanceMap([&](auto &vvc_map) {packet_queue_put_byte(vvc_map, qid, vvc, byte, eop);});
-  }
-
-  void UvvmCosimData::packet_queue_put_pkt(QueueId qid, VvcInstanceKey vvc, const std::vector<uint8_t>& pkt)
-  {
-    vvcInstanceMap([&](auto &vvc_map) {packet_queue_put_pkt(vvc_map, qid, vvc, pkt);});
-  }
+bool UvvmCosimData::MemQueueEmpty(QueueId qid, const VvcIdentifier& vvc)
+{
+  return vvcInstanceMap([&](auto& m) {
+    return getMemVvc(m, vvc)->QueueEmpty(qid);
+  });
+}
 
 } // namespace uvvm_cosim
