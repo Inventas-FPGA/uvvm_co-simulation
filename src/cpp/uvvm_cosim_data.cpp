@@ -1,3 +1,4 @@
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include "uvvm_cosim_data.hpp"
@@ -69,7 +70,8 @@ void UvvmCosimData::AddVvc(const std::string& vvc_type, const std::string& vvc_c
   try {
     vvc = VvcFactory::create(vvc_type, vvc_channel, vvc_instance_id, bfm_cfg);
   } catch (const std::invalid_argument&) {
-    // Unknown VVC type (e.g. CLOCK_GENERATOR_VVC) — skip silently
+    std::cerr << "uvvm_cosim: unsupported VVC type \"" << vvc_type
+              << "\" (instance " << vvc_instance_id << ") — skipping.\n";
     return;
   }
 
