@@ -140,6 +140,98 @@ void UvvmCosimServer::ReceivePacketQueuePut(std::string vvc_type, int vvc_instan
 }
 
 // ---------------------------------------------------------------------------
+// VHPI/FLI interface — memory-mapped VVCs
+// ---------------------------------------------------------------------------
+//
+// The fetch/peek-style request API lets the VHDL ctrl entity issue multiple
+// VHPI calls (is_write, get_addr, get_num_bytes, get_byte) for a single
+// request without each call having to repop from the queue. MmRequestFetch
+// atomically moves the front Transfer from QID_REQUEST into mm_pending_request
+// keyed by (vvc_type, vvc_id). Per-VVC state means the VHDL side can run one
+// AXI-Lite ctrl process per instance without interfering with others.
+
+bool UvvmCosimServer::MmRequestEmpty(std::string vvc_type, int vvc_instance_id)
+{
+  try {
+    return MemQueueEmpty(QID_REQUEST, makeId(vvc_type, VvcChannel::NA, vvc_instance_id));
+  } catch (...) {
+    return true;
+  }
+}
+
+void UvvmCosimServer::MmRequestFetch(std::string vvc_type, int vvc_instance_id)
+{
+  try {
+    auto trans = MemQueueGet(QID_REQUEST, makeId(vvc_type, VvcChannel::NA, vvc_instance_id));
+    if (trans) {
+      mm_pending_request[{vvc_type, vvc_instance_id}] = std::move(trans.value());
+    }
+  } catch (...) {}
+}
+
+bool UvvmCosimServer::MmRequestIsWrite(std::string vvc_type, int vvc_instance_id)
+{
+  auto it = mm_pending_request.find({vvc_type, vvc_instance_id});
+  if (it == mm_pending_request.end()) return false;
+  // Read requests carry num_bytes and empty data; writes carry the data bytes.
+  return !it->second.data.empty();
+}
+
+uint32_t UvvmCosimServer::MmRequestGetAddr(std::string vvc_type, int vvc_instance_id)
+{
+  auto it = mm_pending_request.find({vvc_type, vvc_instance_id});
+  if (it == mm_pending_request.end()) return 0;
+  return static_cast<uint32_t>(it->second.addr);
+}
+
+int UvvmCosimServer::MmRequestGetNumBytes(std::string vvc_type, int vvc_instance_id)
+{
+  auto it = mm_pending_request.find({vvc_type, vvc_instance_id});
+  if (it == mm_pending_request.end()) return 0;
+  // For writes the number of data bytes is the size of the data vector.
+  // For reads the requested byte count is carried in num_bytes.
+  if (!it->second.data.empty()) return static_cast<int>(it->second.data.size());
+  return static_cast<int>(it->second.num_bytes);
+}
+
+uint8_t UvvmCosimServer::MmRequestGetByte(std::string vvc_type, int vvc_instance_id, int byte_idx)
+{
+  auto it = mm_pending_request.find({vvc_type, vvc_instance_id});
+  if (it == mm_pending_request.end()) return 0;
+  if (byte_idx < 0 || static_cast<size_t>(byte_idx) >= it->second.data.size()) return 0;
+  return it->second.data[byte_idx];
+}
+
+void UvvmCosimServer::MmResponseWriteDone(std::string vvc_type, int vvc_instance_id)
+{
+  try {
+    Transfer trans{}; // empty data signals write completion
+    MemQueuePut(QID_RESPONSE, makeId(vvc_type, VvcChannel::NA, vvc_instance_id), trans);
+  } catch (...) {}
+  mm_pending_request.erase({vvc_type, vvc_instance_id});
+}
+
+void UvvmCosimServer::MmResponsePutByte(std::string vvc_type, int vvc_instance_id, uint8_t byte)
+{
+  mm_read_staging[{vvc_type, vvc_instance_id}].push_back(byte);
+}
+
+void UvvmCosimServer::MmResponseReadDone(std::string vvc_type, int vvc_instance_id)
+{
+  VvcKey key{vvc_type, vvc_instance_id};
+  try {
+    Transfer trans{};
+    auto it = mm_read_staging.find(key);
+    if (it != mm_read_staging.end()) {
+      trans.data = std::move(it->second);
+    }
+    MemQueuePut(QID_RESPONSE, makeId(vvc_type, VvcChannel::NA, vvc_instance_id), trans);
+  } catch (...) {}
+  mm_read_staging.erase(key);
+  mm_pending_request.erase(key);
+}
+
+// ---------------------------------------------------------------------------
 // JSON-RPC procedures — simulation control
 // ---------------------------------------------------------------------------
 

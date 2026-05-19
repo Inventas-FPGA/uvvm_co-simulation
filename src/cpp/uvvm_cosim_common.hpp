@@ -27,6 +27,24 @@ int transmit_packet_queue_get(std::string vvc_type, int vvc_instance_id);
 void receive_packet_queue_put(std::string vvc_type, int vvc_instance_id,
 			      uint8_t byte, bool eop);
 
+bool mm_request_empty(std::string vvc_type, int vvc_instance_id);
+
+void mm_request_fetch(std::string vvc_type, int vvc_instance_id);
+
+bool mm_request_is_write(std::string vvc_type, int vvc_instance_id);
+
+uint32_t mm_request_get_addr(std::string vvc_type, int vvc_instance_id);
+
+int mm_request_get_num_bytes(std::string vvc_type, int vvc_instance_id);
+
+int mm_request_get_byte(std::string vvc_type, int vvc_instance_id, int byte_idx);
+
+void mm_response_write_done(std::string vvc_type, int vvc_instance_id);
+
+void mm_response_put_byte(std::string vvc_type, int vvc_instance_id, uint8_t byte);
+
+void mm_response_read_done(std::string vvc_type, int vvc_instance_id);
+
 void start_sim(void);
 
 bool terminate_sim(void);

@@ -23,6 +23,10 @@ def add_project_files(hr):
     hr.add_files("thirdparty/uvvm/bitvis_vip_axistream/src/*.vhd",                "bitvis_vip_axistream")
     hr.add_files("thirdparty/uvvm/uvvm_vvc_framework/src_target_dependent/*.vhd", "bitvis_vip_axistream")
 
+    # AXI-Lite VIP
+    hr.add_files("thirdparty/uvvm/bitvis_vip_axilite/src/*.vhd",                  "bitvis_vip_axilite")
+    hr.add_files("thirdparty/uvvm/uvvm_vvc_framework/src_target_dependent/*.vhd", "bitvis_vip_axilite")
+
     # UART VIP
     hr.add_files("thirdparty/uvvm/bitvis_vip_uart/src/*.vhd",                "bitvis_vip_uart")
     hr.add_files("thirdparty/uvvm/uvvm_vvc_framework/src_target_dependent/*.vhd", "bitvis_vip_uart")
@@ -34,6 +38,7 @@ def add_project_files(hr):
     # Add cosim module code
     hr.add_files("src/vhdl/uvvm_cosim_axis_vvc_ctrl.vhd", "uvvm_cosim_lib")
     hr.add_files("src/vhdl/uvvm_cosim_uart_vvc_ctrl.vhd", "uvvm_cosim_lib")
+    hr.add_files("src/vhdl/uvvm_cosim_axilite_vvc_ctrl.vhd", "uvvm_cosim_lib")
     hr.add_files("src/vhdl/uvvm_cosim_utils_pkg.vhd", "uvvm_cosim_lib")
     hr.add_files("src/vhdl/uvvm_cosim.vhd", "uvvm_cosim_lib")
 

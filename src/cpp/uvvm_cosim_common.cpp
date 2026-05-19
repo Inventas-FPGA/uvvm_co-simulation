@@ -94,6 +94,51 @@ void receive_packet_queue_put(std::string vvc_type, int vvc_instance_id,
   cosim_server->ReceivePacketQueuePut(vvc_type, vvc_instance_id, byte, eop);
 }
 
+bool mm_request_empty(std::string vvc_type, int vvc_instance_id)
+{
+  return cosim_server->MmRequestEmpty(vvc_type, vvc_instance_id);
+}
+
+void mm_request_fetch(std::string vvc_type, int vvc_instance_id)
+{
+  cosim_server->MmRequestFetch(vvc_type, vvc_instance_id);
+}
+
+bool mm_request_is_write(std::string vvc_type, int vvc_instance_id)
+{
+  return cosim_server->MmRequestIsWrite(vvc_type, vvc_instance_id);
+}
+
+uint32_t mm_request_get_addr(std::string vvc_type, int vvc_instance_id)
+{
+  return cosim_server->MmRequestGetAddr(vvc_type, vvc_instance_id);
+}
+
+int mm_request_get_num_bytes(std::string vvc_type, int vvc_instance_id)
+{
+  return cosim_server->MmRequestGetNumBytes(vvc_type, vvc_instance_id);
+}
+
+int mm_request_get_byte(std::string vvc_type, int vvc_instance_id, int byte_idx)
+{
+  return cosim_server->MmRequestGetByte(vvc_type, vvc_instance_id, byte_idx);
+}
+
+void mm_response_write_done(std::string vvc_type, int vvc_instance_id)
+{
+  cosim_server->MmResponseWriteDone(vvc_type, vvc_instance_id);
+}
+
+void mm_response_put_byte(std::string vvc_type, int vvc_instance_id, uint8_t byte)
+{
+  cosim_server->MmResponsePutByte(vvc_type, vvc_instance_id, byte);
+}
+
+void mm_response_read_done(std::string vvc_type, int vvc_instance_id)
+{
+  cosim_server->MmResponseReadDone(vvc_type, vvc_instance_id);
+}
+
 
 void start_sim(void)
 {
