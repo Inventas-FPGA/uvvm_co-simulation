@@ -110,3 +110,13 @@ jobs:
         run: |
           python ../scripts/run.py -s NVC -tc axistream_uart_uvvm_tb.tb.TC_COSIM | sed -e 's/^/[HDL]: /' & sleep 5 && python ../scripts/uart_cosim_test.py | sed -e 's/^/[COSIM]: /' & wait -n
 
+      - name: 'Build AXI-Lite regblock example HDL simulation with NVC'
+        working-directory: ./examples/axilite_reg_block/run
+        run: |
+          python ../scripts/run.py -s NVC --no_sim -v
+
+      - name: 'Run AXI-Lite regblock cosim example with NVC'
+        working-directory: ./examples/axilite_reg_block/run
+        run: |
+          python ../scripts/run.py -s NVC -tc axilite_reg_block_uvvm_tb.tb.TC_COSIM | sed -e 's/^/[HDL]: /' & sleep 5 && python ../scripts/axilite_cosim_test.py | sed -e 's/^/[COSIM]: /' & wait -n
+
