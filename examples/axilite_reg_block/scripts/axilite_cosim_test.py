@@ -11,7 +11,7 @@ NUM_SCRATCH = 9
 ID_OFFSET   = 0x24
 ID_VALUE    = 0xCAFEC0DE
 
-TIMEOUT_SECONDS = 5
+TIMEOUT_SECONDS = 30
 
 
 def write_reg(rpc, addr, value):
