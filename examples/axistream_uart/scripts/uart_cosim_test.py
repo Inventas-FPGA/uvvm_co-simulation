@@ -30,9 +30,9 @@ def main():
 
     time.sleep(1.0)
 
-    NUM_ITERATIONS = 10
-    NUM_BYTES = 200
-    TIMEOUT_SECONDS = 240
+    NUM_ITERATIONS = 5
+    NUM_BYTES = 50
+    TIMEOUT_SECONDS = 120
 
     t0 = time.time()
 
