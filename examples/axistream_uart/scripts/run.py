@@ -27,6 +27,10 @@ def add_project_files(hr):
 
     hr.add_files(repo_path / "thirdparty" / "uvvm" / "bitvis_vip_scoreboard" / "src" / "*.vhd", "bitvis_vip_scoreboard")
 
+    # AXI-Lite VIP — Not used by DUT but cosim library requires it
+    hr.add_files(repo_path / "thirdparty" / "uvvm" / "bitvis_vip_axilite" / "src" / "*.vhd",                "bitvis_vip_axilite")
+    hr.add_files(repo_path / "thirdparty" / "uvvm" / "uvvm_vvc_framework" / "src_target_dependent" / "*.vhd", "bitvis_vip_axilite")
+
     # AXI-Stream VIP
     hr.add_files(repo_path / "thirdparty" / "uvvm" / "bitvis_vip_axistream" / "src" / "*.vhd",                "bitvis_vip_axistream")
     hr.add_files(repo_path / "thirdparty" / "uvvm" / "uvvm_vvc_framework" / "src_target_dependent" / "*.vhd", "bitvis_vip_axistream")
@@ -40,6 +44,7 @@ def add_project_files(hr):
     hr.add_files(repo_path / "thirdparty" / "uvvm" / "uvvm_vvc_framework" / "src_target_dependent" / "*.vhd", "bitvis_vip_clock_generator")
 
     # UVVM cosim module code
+    hr.add_files(repo_path / "src" / "vhdl" / "uvvm_cosim_axilite_vvc_ctrl.vhd", "uvvm_cosim_lib")
     hr.add_files(repo_path / "src" / "vhdl" / "uvvm_cosim_axis_vvc_ctrl.vhd", "uvvm_cosim_lib")
     hr.add_files(repo_path / "src" / "vhdl" / "uvvm_cosim_uart_vvc_ctrl.vhd", "uvvm_cosim_lib")
     hr.add_files(repo_path / "src" / "vhdl" / "uvvm_cosim_utils_pkg.vhd", "uvvm_cosim_lib")
