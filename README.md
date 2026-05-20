@@ -149,8 +149,11 @@ cmake .. -DENABLE_UNIT_TESTS=On -DENABLE_COVERAGE=On
 make
 ```
 
-To run all unit tests, execute `make test` or run `ctest`. Or, to run a unit test directly (there is only one at the moment), from the build folder run:
+To run all unit tests, execute `make test` or run `ctest`. Or, to run a unit test binary directly, from the build folder run:
 ```
+test/cpp/test_byte_queue
+test/cpp/test_packet_queue
+test/cpp/test_uvvm_cosim_data
 test/cpp/test_uvvm_cosim_types
 ```
 
@@ -213,47 +216,49 @@ Another example, for a call to get the list of VVCs in the simulation:
 ```
 {
   "success": true,
-  "result": {
-    [
-	  {
-	    "vvc_type": "CLOCK_GENERATOR_VVC"
-	    "vvc_channel": "NA",
-	    "vvc_instance_id": 0,
-		"vvc_cfg": {"cosim_support": 0},
-	  },
-      {
-	    "vvc_type": "UART_VVC",
-	    "vvc_channel": "RX",
-	    "vvc_instance_id": 0,
-	    "vvc_cfg": {"cosim_support": 1}
-	  },
-	  {
-	    "vvc_type": "UART_VVC",
-	    "vvc_channel": "TX",
-	    "vvc_instance_id": 0,
-	    "vvc_cfg": {"cosim_support": 1}
-	  },
-	  {
-	    "vvc_type": "AXISTREAM_VVC",
-	    "vvc_channel": "NA",
-	    "vvc_instance_id": 0,
-	    "vvc_cfg": {"cosim_support": 1, "packet_based": 0}
-	  },
-	  {
-	    "vvc_type": "AXISTREAM_VVC",
-	    "vvc_channel": "NA",
-	    "vvc_instance_id": 1,
-	    "vvc_cfg": {"cosim_support": 1, "packet_based": 0}
-	  }
-    ]
-  },
+  "result": [
+    {
+      "vvc_type": "UART_VVC",
+      "vvc_channel": "RX",
+      "vvc_instance_id": 0,
+      "listen_enable": false,
+      "cosim_support": true,
+      "packet_based": false,
+      "bfm_cfg": {"timeout": 0, "baudrate": 115200}
+    },
+    {
+      "vvc_type": "UART_VVC",
+      "vvc_channel": "TX",
+      "vvc_instance_id": 0,
+      "listen_enable": false,
+      "cosim_support": true,
+      "packet_based": false,
+      "bfm_cfg": {"baudrate": 115200}
+    },
+    {
+      "vvc_type": "AXISTREAM_VVC",
+      "vvc_channel": "NA",
+      "vvc_instance_id": 0,
+      "listen_enable": false,
+      "cosim_support": true,
+      "packet_based": false,
+      "bfm_cfg": {"max_wait_cycles": 1000}
+    },
+    {
+      "vvc_type": "AXISTREAM_VVC",
+      "vvc_channel": "NA",
+      "vvc_instance_id": 1,
+      "listen_enable": true,
+      "cosim_support": true,
+      "packet_based": true,
+      "bfm_cfg": {"max_wait_cycles": 1000}
+    }
+  ],
   "id": 1
 }
 ```
 
-All detected VVCs are included in this list, but not all VVCs are supported by the co-sim library. For example the clock generator VVC reported above, where the `cosim_support` field is zero. The `config` field may also contain VVC specific values, such as the `packet_based` field shown for the AXISTREAM VVCs above.
-
-TODO: Maybe report only the VVCs that can are supported by cosim? Seems unnecessary to report the others and they I don't need a `cosim_support` field.
+Only VVC types supported by the co-sim library appear in this list (unsupported types such as `CLOCK_GENERATOR_VVC` are skipped, and a warning is printed to stderr). Each entry includes `listen_enable` (whether the server is currently queuing received data for that VVC), `cosim_support` (set from the VHDL BFM config), `packet_based` (true for packet-framed VVCs using TLAST/EOP), and a `bfm_cfg` map of the remaining BFM configuration values reported by the VHDL side.
 
 # JSON-RPC methods
 
@@ -281,14 +286,31 @@ Supported VVCs:
 ## Transmit and receive packet
 
 `TransmitPacket(VVC_TYPE, VVC_ID, [packet])`
-`ReceiveBytes(VVC_TYPE, VVC_ID)`
+`ReceivePacket(VVC_TYPE, VVC_ID)`
 
 Supported VVCs:
 - AXISTREAM VVC with check\_packet\_length enabled in config
 - AVALON-ST (planned) with use\_packet\_transfer enabled in config
 
-## Note on VVC configurations and channels
+## Memory-mapped VVC methods
 
-Some BFM configuration values are reported with the `GetVvcList` method, such as packet based which is possible for AXI-Stream and Avalon-ST. Unfortunately, not all 
+These methods are for VVCs that use address-based read/write transfers (AXI, AXI-Lite, Avalon-MM). Requests are non-blocking: `SendWriteRequest` and `SendReadRequest` enqueue a transfer, while `GetWriteResponse` and `GetReadResponse` poll for the corresponding response from the simulation.
 
-It is not necessary to specify VVC channel for any of the `transmit_bytes`, `transmit_packet`, `receive_bytes`, or `receive_packet` methods. 
+`SendWriteRequest(VVC_TYPE, VVC_ID, addr, [data], addr_increment)`
+
+`GetWriteResponse(VVC_TYPE, VVC_ID)` — returns `{"available": true/false}`
+
+`SendReadRequest(VVC_TYPE, VVC_ID, addr, num_bytes)`
+
+`GetReadResponse(VVC_TYPE, VVC_ID)` — returns `{"data": [...]}` (empty array if response not yet available)
+
+> Note: VHDL VVC controllers for memory-mapped buses are not yet implemented. These JSON-RPC methods are available on the server side but require a corresponding VHDL controller to drive the actual bus transactions.
+
+Supported VVCs (once VHDL controllers are available):
+- AXI\_VVC
+- AXILITE\_VVC
+- AVALON\_MM\_VVC
+
+## Note on VVC channel
+
+It is not necessary to specify a VVC channel when calling any of the transmit or receive methods (`TransmitBytes`, `TransmitPacket`, `ReceiveBytes`, `ReceivePacket`, `SendWriteRequest`, etc.). The channel is determined by context: for UART the server internally routes to the TX channel for transmit and the RX channel for receive; for all other VVC types the channel is always NA.

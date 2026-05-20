@@ -39,3 +39,6 @@ build/
 
 # HDL checker
 .hdlchecker/
+
+# Claude project
+.claude/

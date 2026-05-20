@@ -6,112 +6,75 @@
 
 using namespace uvvm_cosim;
 
-// Some VVC examples placed in the order we expect VvcCompare to sort them
-std::vector<VvcInstanceKey> vk = {
-    VvcInstanceKey{"AXISTREAM_VVC", "NA", 1},
-    VvcInstanceKey{"AXISTREAM_VVC", "NA", 10},
-    VvcInstanceKey{"UART_VVC", "RX", 3},
-    VvcInstanceKey{"UART_VVC", "TX", 0},
-    VvcInstanceKey{"UART_VVC", "TX", 3}
-};
-
-// Some random imaginary config values pairs
-std::vector<VvcConfig> vc = {
-  VvcConfig{.listen_enable=true, .bfm_cfg = {{"cfg_val1", 0}, {"cfg_val2", 1}, {"cfg_val3", 10}}},
-  VvcConfig{.listen_enable=false, .bfm_cfg = {{"airplane", 200}, {"helicopter", 123}}},
-  VvcConfig{.listen_enable=false, .bfm_cfg = {{"spaghetti", 1}, {"pizza", 234}, {"lasagne", 0}, {"risotto", 89}}},
-  VvcConfig{.listen_enable=true, .bfm_cfg = {{"cookie", 14}}},
-  VvcConfig{.listen_enable=false, .bfm_cfg = {{"firetruck", 123}, {"boat", 23}, {"submarine", 10}}}
-};
-
-// Some VVC instances key+config data. Used to test to/from JSON.
-std::vector<VvcInstance> vi = {
-  {vk[0], vc[0]},
-  {vk[1], vc[1]},
-  {vk[2], vc[2]},
-  {vk[3], vc[3]},
-  {vk[4], vc[4]},
+// VVC identifiers in the order VvcCompare should sort them.
+// Sort key: (vvc_type enum value, vvc_channel enum value, instance_id).
+// AXI_STREAM=0, UART=5; NA=0, RX=1, TX=2.
+std::vector<VvcIdentifier> vk = {
+  {VvcTypes::AXI_STREAM, VvcChannel::NA, 1},
+  {VvcTypes::AXI_STREAM, VvcChannel::NA, 10},
+  {VvcTypes::UART,       VvcChannel::RX, 3},
+  {VvcTypes::UART,       VvcChannel::TX, 0},
+  {VvcTypes::UART,       VvcChannel::TX, 3},
 };
 
 TEST_CASE("VvcCompare_order")
 {
-  INFO("VvcCompare_order test start. Checks expected sorting order.");
+  INFO("Checks that VvcCompare provides strict ordering for std::map.");
 
-  // The order doesn't really matter for the co-sim server.
-  // But, std::map requires comparator class with strict-order sorting
-  // to work correctly, so makes to actually test that.
-  // And we don't really care about data here - may as well use integers
+  std::map<VvcIdentifier, int, VvcCompare> m;
 
-  std::map<VvcInstanceKey, int, VvcCompare> m;
-
-  // Insert to map out-of-order
+  // Insert out-of-order
   m.emplace(vk[4], 0);
   m.emplace(vk[3], 1);
   m.emplace(vk[1], 2);
   m.emplace(vk[2], 3);
   m.emplace(vk[0], 4);
 
-  // If comparator class is bad then we could end up overwriting
-  // existing entries in the map
+  // A bad comparator would cause duplicate keys; verify all five are distinct.
   REQUIRE(m.size() == vk.size());
 
-  // Verify expected order when iterating over map
-  int idx=0;
-  for (auto it = m.begin(); it != m.end(); it++, idx++)
-  {
-    REQUIRE(it->first.vvc_type == vk[idx].vvc_type);
-    REQUIRE(it->first.vvc_channel == vk[idx].vvc_channel);
+  // Verify expected iteration order.
+  int idx = 0;
+  for (auto it = m.begin(); it != m.end(); ++it, ++idx) {
+    REQUIRE(it->first.vvc_type        == vk[idx].vvc_type);
+    REQUIRE(it->first.vvc_channel     == vk[idx].vvc_channel);
     REQUIRE(it->first.vvc_instance_id == vk[idx].vvc_instance_id);
   }
 }
 
-TEST_CASE("VvcInstance_to_json")
+TEST_CASE("VvcInfo_to_json")
 {
-  INFO("VvcInstance_to_json test start. Checks conversion from VvcInstance to json.");
+  INFO("Checks JSON serialization of VvcInfo (used in GetVvcList responses).");
 
-  for (auto& vvc : vi)
-  {
-    nlohmann::json j = vvc;
+  VvcInfo info;
+  info.vvc_type        = "UART_VVC";
+  info.vvc_channel     = "TX";
+  info.vvc_instance_id = 2;
+  info.listen_enable   = true;
+  info.cosim_support   = true;
+  info.packet_based    = false;
+  info.bfm_cfg         = {{"timeout", 0}, {"baudrate", 115200}};
 
-    REQUIRE(j.contains("vvc_type"));
-    REQUIRE(j.contains("vvc_channel"));
-    REQUIRE(j.contains("vvc_instance_id"));
-    REQUIRE(j.contains("bfm_cfg"));
-    REQUIRE(j.contains("listen_enable"));
+  nlohmann::json j = info;
 
-    REQUIRE(j["vvc_type"] == vvc.vvc_type);
-    REQUIRE(j["vvc_channel"] == vvc.vvc_channel);
-    REQUIRE(j["vvc_instance_id"] == vvc.vvc_instance_id);
-    REQUIRE(j["bfm_cfg"].size() == vvc.bfm_cfg.size());
-    REQUIRE(j["listen_enable"] == vvc.listen_enable);
+  REQUIRE(j.contains("vvc_type"));
+  REQUIRE(j.contains("vvc_channel"));
+  REQUIRE(j.contains("vvc_instance_id"));
+  REQUIRE(j.contains("listen_enable"));
+  REQUIRE(j.contains("cosim_support"));
+  REQUIRE(j.contains("packet_based"));
+  REQUIRE(j.contains("bfm_cfg"));
 
-    for (const auto& cfg_entry : vvc.bfm_cfg)
-    {
-      REQUIRE(j["bfm_cfg"].contains(cfg_entry.first));
-      REQUIRE(j["bfm_cfg"][cfg_entry.first] == cfg_entry.second);
-    }
-  }
-}
+  REQUIRE(j["vvc_type"]        == info.vvc_type);
+  REQUIRE(j["vvc_channel"]     == info.vvc_channel);
+  REQUIRE(j["vvc_instance_id"] == info.vvc_instance_id);
+  REQUIRE(j["listen_enable"]   == info.listen_enable);
+  REQUIRE(j["cosim_support"]   == info.cosim_support);
+  REQUIRE(j["packet_based"]    == info.packet_based);
+  REQUIRE(j["bfm_cfg"].size()  == info.bfm_cfg.size());
 
-TEST_CASE("VvcInstance_from_json")
-{
-  INFO("VvcInstance_from_json test start. Checks conversion to VvcInstance from json.");
-
-  for (auto& vvc : vi)
-  {
-    nlohmann::json j = vvc;
-    VvcInstance vvc_converted = j;
-
-    REQUIRE(vvc_converted.vvc_type == vvc.vvc_type);
-    REQUIRE(vvc_converted.vvc_channel == vvc.vvc_channel);
-    REQUIRE(vvc_converted.vvc_instance_id == vvc.vvc_instance_id);
-    REQUIRE(vvc_converted.bfm_cfg.size() == vvc.bfm_cfg.size());
-    REQUIRE(vvc_converted.listen_enable == vvc.listen_enable);
-
-    for (const auto& cfg_entry : vvc_converted.bfm_cfg)
-    {
-      REQUIRE(vvc.bfm_cfg.contains(cfg_entry.first));
-      REQUIRE(vvc.bfm_cfg[cfg_entry.first] == cfg_entry.second);
-    }
+  for (auto& [k, v] : info.bfm_cfg) {
+    REQUIRE(j["bfm_cfg"].contains(k));
+    REQUIRE(j["bfm_cfg"][k] == v);
   }
 }

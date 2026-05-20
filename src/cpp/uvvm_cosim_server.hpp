@@ -1,7 +1,6 @@
 #pragma once
 #include <atomic>
 #include <cstdint>
-#include <iostream>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -12,112 +11,110 @@
 
 namespace uvvm_cosim {
 
-class UvvmCosimServer {
+class UvvmCosimServer : public UvvmCosimData {
 private:
-
   jsonrpccxx::JsonRpc2Server jsonRpcServer;
-  CppHttpLibServerConnector httpServer;
-  UvvmCosimData cosimData;
+  CppHttpLibServerConnector  httpServer;
 
   // --------------------------------------------------------------------------
-  // JSON-RPC remote procedures
+  // JSON-RPC remote procedures — streaming VVCs
   // --------------------------------------------------------------------------
-
   JsonResponse StartSim();
   JsonResponse PauseSim();
   JsonResponse TerminateSim();
   JsonResponse GetVvcList();
   JsonResponse SetVvcListenEnable(std::string vvc_type, int vvc_id, bool enable);
-
   JsonResponse TransmitBytes(std::string vvc_type, int vvc_id, std::vector<uint8_t> data);
   JsonResponse TransmitPacket(std::string vvc_type, int vvc_id, std::vector<uint8_t> data);
-
   JsonResponse ReceiveBytes(std::string vvc_type, int vvc_id, int num_bytes, bool exact_length);
   JsonResponse ReceivePacket(std::string vvc_type, int vvc_id);
 
+  // --------------------------------------------------------------------------
+  // JSON-RPC remote procedures — memory-mapped VVCs
+  // --------------------------------------------------------------------------
+  JsonResponse WriteRequest(std::string vvc_type, int vvc_id, uint64_t addr,
+                            std::vector<uint8_t> data, bool addr_increment);
+  JsonResponse WriteResponse(std::string vvc_type, int vvc_id);
+  JsonResponse ReadRequest(std::string vvc_type, int vvc_id, uint64_t addr, uint32_t num_bytes);
+  JsonResponse ReadResponse(std::string vvc_type, int vvc_id);
+
+  // Build a VvcIdentifier from the string-based parameters supplied by JSON-RPC / VHPI/FLI.
+  // For UART_VVC the channel is inferred from the queue direction (TX for transmit, RX for others).
+  VvcIdentifier makeId(const std::string& vvc_type, VvcChannel channel, int vvc_instance_id) const;
+
 public:
-  UvvmCosimServer(int port)
+  explicit UvvmCosimServer(int port)
     : jsonRpcServer()
     , httpServer(jsonRpcServer, port)
   {
     using namespace jsonrpccxx;
 
-    // Add JSON-RPC procedures
-
     jsonRpcServer.Add("TransmitBytes",
-                      GetHandle(&UvvmCosimServer::TransmitBytes, *this),
+                      GetHandle(&UvvmCosimServer::TransmitBytes,  *this),
                       {"vvc_type", "vvc_id", "data"});
-
     jsonRpcServer.Add("TransmitPacket",
                       GetHandle(&UvvmCosimServer::TransmitPacket, *this),
                       {"vvc_type", "vvc_id", "data"});
-
     jsonRpcServer.Add("ReceiveBytes",
-                      GetHandle(&UvvmCosimServer::ReceiveBytes, *this),
+                      GetHandle(&UvvmCosimServer::ReceiveBytes,   *this),
                       {"vvc_type", "vvc_id", "num_bytes", "exact_length"});
-
     jsonRpcServer.Add("ReceivePacket",
-                      GetHandle(&UvvmCosimServer::ReceivePacket, *this),
+                      GetHandle(&UvvmCosimServer::ReceivePacket,  *this),
+                      {"vvc_type", "vvc_id"});
+
+    jsonRpcServer.Add("SendWriteRequest",
+                      GetHandle(&UvvmCosimServer::WriteRequest,   *this),
+                      {"vvc_type", "vvc_id", "addr", "data", "addr_increment"});
+    jsonRpcServer.Add("GetWriteResponse",
+                      GetHandle(&UvvmCosimServer::WriteResponse,  *this),
+                      {"vvc_type", "vvc_id"});
+    jsonRpcServer.Add("SendReadRequest",
+                      GetHandle(&UvvmCosimServer::ReadRequest,    *this),
+                      {"vvc_type", "vvc_id", "addr", "num_bytes"});
+    jsonRpcServer.Add("GetReadResponse",
+                      GetHandle(&UvvmCosimServer::ReadResponse,   *this),
                       {"vvc_type", "vvc_id"});
 
     jsonRpcServer.Add("GetVvcList",
-                      GetHandle(&UvvmCosimServer::GetVvcList, *this), {});
-
+                      GetHandle(&UvvmCosimServer::GetVvcList,     *this), {});
     jsonRpcServer.Add("SetVvcListenEnable",
                       GetHandle(&UvvmCosimServer::SetVvcListenEnable, *this),
-		      {"vvc_type", "vvc_id", "enable"});
-
+                      {"vvc_type", "vvc_id", "enable"});
     jsonRpcServer.Add("StartSim",
-		      GetHandle(&UvvmCosimServer::StartSim, *this), {});
-
+                      GetHandle(&UvvmCosimServer::StartSim,       *this), {});
     jsonRpcServer.Add("PauseSim",
-		      GetHandle(&UvvmCosimServer::PauseSim, *this), {});
-
+                      GetHandle(&UvvmCosimServer::PauseSim,       *this), {});
     jsonRpcServer.Add("TerminateSim",
-		      GetHandle(&UvvmCosimServer::TerminateSim, *this), {});
+                      GetHandle(&UvvmCosimServer::TerminateSim,   *this), {});
   }
 
-  ~UvvmCosimServer()
-  {
+  ~UvvmCosimServer() {
     httpServer.StopListening();
   }
 
   // --------------------------------------------------------------------------
-  // Methods used by VHPI/FLI code
+  // Methods called from VHPI/FLI foreign functions (uvvm_cosim_common.cpp)
   // --------------------------------------------------------------------------
 
-  void StartListening()
-  {
-    httpServer.StartListening();
-  }
-
-  void StopListening()
-  {
-    httpServer.StopListening();
-  }
+  void StartListening()  { httpServer.StartListening();  }
+  void StopListening()   { httpServer.StopListening();   }
 
   void WaitForStartSim();
   bool ShouldTerminateSim();
 
-  bool VvcListenEnabled(std::string vvc_type,
-			   int vvc_instance_id);
+  bool VvcListenEnabled(std::string vvc_type, int vvc_instance_id);
 
   void AddVvc(std::string vvc_type, std::string vvc_channel,
-	      int vvc_instance_id, std::string bfm_cfg_str);
+              int vvc_instance_id, std::string bfm_cfg_str);
 
   bool TransmitQueueEmpty(std::string vvc_type, int vvc_instance_id);
-
   std::optional<uint8_t> TransmitQueueGet(std::string vvc_type, int vvc_instance_id);
-
   void ReceiveQueuePut(std::string vvc_type, int vvc_instance_id, uint8_t byte);
 
   bool TransmitPacketQueueEmpty(std::string vvc_type, int vvc_instance_id);
-
-  auto TransmitPacketQueueGet(std::string vvc_type, int vvc_instance_id) -> std::optional<std::pair<uint8_t, bool>>;
-
+  auto TransmitPacketQueueGet(std::string vvc_type, int vvc_instance_id)
+       -> std::optional<std::pair<uint8_t, bool>>;
   void ReceivePacketQueuePut(std::string vvc_type, int vvc_instance_id, uint8_t byte, bool eop);
-
 };
-  
-} // namespace uvvm_cosim
 
+} // namespace uvvm_cosim

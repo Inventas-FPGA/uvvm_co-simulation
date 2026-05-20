@@ -34,20 +34,21 @@ void print_receive_result(const JsonResponse& response, const std::string& vvc_n
   }
 }
 
-void print_vvc(const VvcInstance& vvc)
+void print_vvc(const json& vvc)
 {
-  std::cout << "Type: " << vvc.vvc_type << ", ";
-  std::cout << "Channel: " << vvc.vvc_channel << ", ";
-  std::cout << "Instance ID: " << vvc.vvc_instance_id << std::endl;
+  std::cout << "Type: "        << vvc.value("vvc_type",        "?") << ", ";
+  std::cout << "Channel: "     << vvc.value("vvc_channel",     "?") << ", ";
+  std::cout << "Instance ID: " << vvc.value("vvc_instance_id", -1)  << std::endl;
 
   std::cout << "Config: ";
-  for (auto &cfg : vvc.bfm_cfg) {
-    std::cout << cfg.first << "=" << cfg.second << " ";
+  for (auto& [k, v] : vvc.value("bfm_cfg", json::object()).items()) {
+    std::cout << k << "=" << v << " ";
   }
+  std::cout << std::endl;
   std::cout << "listen_enable: "
-            << (vvc.listen_enable ? "true" : "false") << std::endl;
+            << (vvc.value("listen_enable", false) ? "true" : "false") << std::endl;
   std::cout << "packet_based: "
-            << (vvc.packet_based ? "true" : "false") << std::endl;
+            << (vvc.value("packet_based", false) ? "true" : "false") << std::endl;
 }
 
 void print_vvc_list(const JsonResponse& vvc_list_json)
@@ -55,10 +56,9 @@ void print_vvc_list(const JsonResponse& vvc_list_json)
   if (vvc_list_json.success && vvc_list_json.result.is_array()) {
     std::cout << "VVC List:" << std::endl;
     std::cout << "-----------------------------------------------------" << std::endl;
-    for (auto &vvc_json : vvc_list_json.result) {
-      VvcInstance vvc = vvc_json;
-      print_vvc(vvc);
-      std::cout << std::endl << std::endl;
+    for (auto& vvc_json : vvc_list_json.result) {
+      print_vvc(vvc_json);
+      std::cout << std::endl;
     }
   } else {
     std::cout << "Failed to get VVC list: " << vvc_list_json.result["error"] << std::endl;

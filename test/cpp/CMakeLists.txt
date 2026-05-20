@@ -20,7 +20,9 @@ target_include_directories(test_packet_queue PUBLIC
   "${PROJECT_SOURCE_DIR}/thirdparty/json-rpc-cxx/vendor"
 )
 
-add_executable(test_uvvm_cosim_data test_uvvm_cosim_data.cpp ${PROJECT_SOURCE_DIR}/src/cpp/uvvm_cosim_data.cpp)
+add_executable(test_uvvm_cosim_data test_uvvm_cosim_data.cpp
+               ${PROJECT_SOURCE_DIR}/src/cpp/uvvm_cosim_data.cpp
+               ${PROJECT_SOURCE_DIR}/src/cpp/vvc/vvc_factory.cpp)
 target_link_libraries(test_uvvm_cosim_data PRIVATE Catch2::Catch2WithMain)
 target_include_directories(test_uvvm_cosim_data PUBLIC
   "${PROJECT_SOURCE_DIR}/src/cpp"
