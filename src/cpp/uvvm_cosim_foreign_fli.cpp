@@ -99,6 +99,61 @@ void uvvm_cosim_foreign_receive_packet_queue_put(mtiVariableIdT vvc_type,
   uvvm_cosim::receive_packet_queue_put(vvc_type_str, vvc_instance_id, byte, eop);
 }
 
+int uvvm_cosim_foreign_mm_request_empty(mtiVariableIdT vvc_type, int vvc_instance_id)
+{
+  std::string vvc_type_str = get_string(vvc_type);
+  return uvvm_cosim::mm_request_empty(vvc_type_str, vvc_instance_id) ? 1 : 0;
+}
+
+void uvvm_cosim_foreign_mm_request_fetch(mtiVariableIdT vvc_type, int vvc_instance_id)
+{
+  std::string vvc_type_str = get_string(vvc_type);
+  uvvm_cosim::mm_request_fetch(vvc_type_str, vvc_instance_id);
+}
+
+int uvvm_cosim_foreign_mm_request_is_write(mtiVariableIdT vvc_type, int vvc_instance_id)
+{
+  std::string vvc_type_str = get_string(vvc_type);
+  return uvvm_cosim::mm_request_is_write(vvc_type_str, vvc_instance_id) ? 1 : 0;
+}
+
+int uvvm_cosim_foreign_mm_request_get_addr(mtiVariableIdT vvc_type, int vvc_instance_id)
+{
+  std::string vvc_type_str = get_string(vvc_type);
+  return static_cast<int>(uvvm_cosim::mm_request_get_addr(vvc_type_str, vvc_instance_id));
+}
+
+int uvvm_cosim_foreign_mm_request_get_num_bytes(mtiVariableIdT vvc_type, int vvc_instance_id)
+{
+  std::string vvc_type_str = get_string(vvc_type);
+  return uvvm_cosim::mm_request_get_num_bytes(vvc_type_str, vvc_instance_id);
+}
+
+int uvvm_cosim_foreign_mm_request_get_byte(mtiVariableIdT vvc_type, int vvc_instance_id,
+                                           int byte_idx)
+{
+  std::string vvc_type_str = get_string(vvc_type);
+  return uvvm_cosim::mm_request_get_byte(vvc_type_str, vvc_instance_id, byte_idx);
+}
+
+void uvvm_cosim_foreign_mm_response_write_done(mtiVariableIdT vvc_type, int vvc_instance_id)
+{
+  std::string vvc_type_str = get_string(vvc_type);
+  uvvm_cosim::mm_response_write_done(vvc_type_str, vvc_instance_id);
+}
+
+void uvvm_cosim_foreign_mm_response_put_byte(mtiVariableIdT vvc_type, int vvc_instance_id, int byte)
+{
+  std::string vvc_type_str = get_string(vvc_type);
+  uvvm_cosim::mm_response_put_byte(vvc_type_str, vvc_instance_id, static_cast<uint8_t>(byte));
+}
+
+void uvvm_cosim_foreign_mm_response_read_done(mtiVariableIdT vvc_type, int vvc_instance_id)
+{
+  std::string vvc_type_str = get_string(vvc_type);
+  uvvm_cosim::mm_response_read_done(vvc_type_str, vvc_instance_id);
+}
+
 static void start_of_sim_cb(void* p)
 {
   uvvm_cosim::start_of_sim();

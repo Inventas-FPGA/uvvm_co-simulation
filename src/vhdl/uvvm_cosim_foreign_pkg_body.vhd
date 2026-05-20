@@ -85,4 +85,74 @@ package body uvvm_cosim_foreign_pkg is
     report "Error: Should use foreign implementation" severity failure;
   end procedure;
 
+  impure function uvvm_cosim_foreign_mm_request_empty(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) return integer is
+  begin
+    report "Error: Should use foreign implementation" severity failure;
+    return 0;
+  end function;
+
+  procedure uvvm_cosim_foreign_mm_request_fetch(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) is
+  begin
+    report "Error: Should use foreign implementation" severity failure;
+  end procedure;
+
+  impure function uvvm_cosim_foreign_mm_request_is_write(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) return integer is
+  begin
+    report "Error: Should use foreign implementation" severity failure;
+    return 0;
+  end function;
+
+  impure function uvvm_cosim_foreign_mm_request_get_addr(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) return integer is
+  begin
+    report "Error: Should use foreign implementation" severity failure;
+    return 0;
+  end function;
+
+  impure function uvvm_cosim_foreign_mm_request_get_num_bytes(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) return integer is
+  begin
+    report "Error: Should use foreign implementation" severity failure;
+    return 0;
+  end function;
+
+  impure function uvvm_cosim_foreign_mm_request_get_byte(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer;
+    constant byte_idx        : in integer) return integer is
+  begin
+    report "Error: Should use foreign implementation" severity failure;
+    return 0;
+  end function;
+
+  procedure uvvm_cosim_foreign_mm_response_write_done(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) is
+  begin
+    report "Error: Should use foreign implementation" severity failure;
+  end procedure;
+
+  procedure uvvm_cosim_foreign_mm_response_put_byte(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer;
+    constant byte            : in integer) is
+  begin
+    report "Error: Should use foreign implementation" severity failure;
+  end procedure;
+
+  procedure uvvm_cosim_foreign_mm_response_read_done(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) is
+  begin
+    report "Error: Should use foreign implementation" severity failure;
+  end procedure;
+
 end package body uvvm_cosim_foreign_pkg;

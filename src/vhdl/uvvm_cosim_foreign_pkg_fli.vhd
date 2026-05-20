@@ -56,6 +56,47 @@ package uvvm_cosim_foreign_pkg is
     constant byte            : in integer;
     constant end_of_packet   : in integer);
 
+  -- Memory-mapped VVC bridge — see uvvm_cosim_foreign_pkg_vhpi.vhd for
+  -- a description of the protocol.
+
+  impure function uvvm_cosim_foreign_mm_request_empty(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) return integer;
+
+  procedure uvvm_cosim_foreign_mm_request_fetch(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer);
+
+  impure function uvvm_cosim_foreign_mm_request_is_write(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) return integer;
+
+  impure function uvvm_cosim_foreign_mm_request_get_addr(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) return integer;
+
+  impure function uvvm_cosim_foreign_mm_request_get_num_bytes(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer) return integer;
+
+  impure function uvvm_cosim_foreign_mm_request_get_byte(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer;
+    constant byte_idx        : in integer) return integer;
+
+  procedure uvvm_cosim_foreign_mm_response_write_done(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer);
+
+  procedure uvvm_cosim_foreign_mm_response_put_byte(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer;
+    constant byte            : in integer);
+
+  procedure uvvm_cosim_foreign_mm_response_read_done(
+    constant vvc_type        : in string;
+    constant vvc_instance_id : in integer);
+
   attribute foreign of uvvm_cosim_foreign_start_sim                   : procedure is "uvvm_cosim_foreign_start_sim libuvvm_cosim_fli.so";
   attribute foreign of uvvm_cosim_foreign_terminate_sim               : function is "uvvm_cosim_foreign_terminate_sim libuvvm_cosim_fli.so";
   attribute foreign of uvvm_cosim_foreign_report_vvc_info             : procedure is "uvvm_cosim_foreign_report_vvc_info libuvvm_cosim_fli.so";
@@ -66,5 +107,14 @@ package uvvm_cosim_foreign_pkg is
   attribute foreign of uvvm_cosim_foreign_transmit_packet_queue_empty : function is "uvvm_cosim_foreign_transmit_packet_queue_empty libuvvm_cosim_fli.so";
   attribute foreign of uvvm_cosim_foreign_transmit_packet_queue_get   : function is "uvvm_cosim_foreign_transmit_packet_queue_get libuvvm_cosim_fli.so";
   attribute foreign of uvvm_cosim_foreign_receive_packet_queue_put    : procedure is "uvvm_cosim_foreign_receive_packet_queue_put libuvvm_cosim_fli.so";
+  attribute foreign of uvvm_cosim_foreign_mm_request_empty            : function is "uvvm_cosim_foreign_mm_request_empty libuvvm_cosim_fli.so";
+  attribute foreign of uvvm_cosim_foreign_mm_request_fetch            : procedure is "uvvm_cosim_foreign_mm_request_fetch libuvvm_cosim_fli.so";
+  attribute foreign of uvvm_cosim_foreign_mm_request_is_write         : function is "uvvm_cosim_foreign_mm_request_is_write libuvvm_cosim_fli.so";
+  attribute foreign of uvvm_cosim_foreign_mm_request_get_addr         : function is "uvvm_cosim_foreign_mm_request_get_addr libuvvm_cosim_fli.so";
+  attribute foreign of uvvm_cosim_foreign_mm_request_get_num_bytes    : function is "uvvm_cosim_foreign_mm_request_get_num_bytes libuvvm_cosim_fli.so";
+  attribute foreign of uvvm_cosim_foreign_mm_request_get_byte         : function is "uvvm_cosim_foreign_mm_request_get_byte libuvvm_cosim_fli.so";
+  attribute foreign of uvvm_cosim_foreign_mm_response_write_done      : procedure is "uvvm_cosim_foreign_mm_response_write_done libuvvm_cosim_fli.so";
+  attribute foreign of uvvm_cosim_foreign_mm_response_put_byte        : procedure is "uvvm_cosim_foreign_mm_response_put_byte libuvvm_cosim_fli.so";
+  attribute foreign of uvvm_cosim_foreign_mm_response_read_done       : procedure is "uvvm_cosim_foreign_mm_response_read_done libuvvm_cosim_fli.so";
 
 end package uvvm_cosim_foreign_pkg;

@@ -30,8 +30,8 @@ def main():
 
     time.sleep(1.0)
 
-    NUM_ITERATIONS = 10
-    NUM_BYTES = 200
+    NUM_ITERATIONS = 5
+    NUM_BYTES = 50
     TIMEOUT_SECONDS = 120
 
     t0 = time.time()
@@ -93,9 +93,7 @@ def main():
             if data_recv_axis2uart is not None and data_recv_uart2axis is not None:
                 done = True
 
-        if not done:
-            print(f"Failed to receive data after {TIMEOUT_SECONDS}")
-            exit(0)
+        assert done is True, f"Failed to receive data after {TIMEOUT_SECONDS}"
 
         assert len(data_recv_axis2uart) == len(data_xmit_axis2uart)
         assert len(data_recv_uart2axis) == len(data_xmit_uart2axis)

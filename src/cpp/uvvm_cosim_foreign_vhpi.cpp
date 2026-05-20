@@ -107,6 +107,92 @@ static void uvvm_cosim_foreign_receive_packet_queue_put(const vhpiCbDataT* p_cb_
   uvvm_cosim::receive_packet_queue_put(vvc_type, vvc_instance_id, byte, eop);
 }
 
+static void uvvm_cosim_foreign_mm_request_empty(const vhpiCbDataT* p_cb_data)
+{
+  std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
+  int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
+
+  bool empty = uvvm_cosim::mm_request_empty(vvc_type, vvc_instance_id);
+
+  return_vhpi_int(p_cb_data, empty ? 1 : 0);
+}
+
+static void uvvm_cosim_foreign_mm_request_fetch(const vhpiCbDataT* p_cb_data)
+{
+  std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
+  int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
+
+  uvvm_cosim::mm_request_fetch(vvc_type, vvc_instance_id);
+}
+
+static void uvvm_cosim_foreign_mm_request_is_write(const vhpiCbDataT* p_cb_data)
+{
+  std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
+  int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
+
+  bool is_write = uvvm_cosim::mm_request_is_write(vvc_type, vvc_instance_id);
+
+  return_vhpi_int(p_cb_data, is_write ? 1 : 0);
+}
+
+static void uvvm_cosim_foreign_mm_request_get_addr(const vhpiCbDataT* p_cb_data)
+{
+  std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
+  int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
+
+  uint32_t addr = uvvm_cosim::mm_request_get_addr(vvc_type, vvc_instance_id);
+
+  // VHDL receives this as a signed integer; 2's-complement gives the right
+  // unsigned value back via to_unsigned() on the VHDL side.
+  return_vhpi_int(p_cb_data, static_cast<int>(addr));
+}
+
+static void uvvm_cosim_foreign_mm_request_get_num_bytes(const vhpiCbDataT* p_cb_data)
+{
+  std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
+  int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
+
+  int n = uvvm_cosim::mm_request_get_num_bytes(vvc_type, vvc_instance_id);
+
+  return_vhpi_int(p_cb_data, n);
+}
+
+static void uvvm_cosim_foreign_mm_request_get_byte(const vhpiCbDataT* p_cb_data)
+{
+  std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
+  int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
+  int byte_idx         = get_vhpi_int_param_by_index(p_cb_data, 2);
+
+  int byte = uvvm_cosim::mm_request_get_byte(vvc_type, vvc_instance_id, byte_idx);
+
+  return_vhpi_int(p_cb_data, byte);
+}
+
+static void uvvm_cosim_foreign_mm_response_write_done(const vhpiCbDataT* p_cb_data)
+{
+  std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
+  int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
+
+  uvvm_cosim::mm_response_write_done(vvc_type, vvc_instance_id);
+}
+
+static void uvvm_cosim_foreign_mm_response_put_byte(const vhpiCbDataT* p_cb_data)
+{
+  std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
+  int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
+  uint8_t byte         = get_vhpi_int_param_by_index(p_cb_data, 2);
+
+  uvvm_cosim::mm_response_put_byte(vvc_type, vvc_instance_id, byte);
+}
+
+static void uvvm_cosim_foreign_mm_response_read_done(const vhpiCbDataT* p_cb_data)
+{
+  std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
+  int vvc_instance_id  = get_vhpi_int_param_by_index(p_cb_data, 1);
+
+  uvvm_cosim::mm_response_read_done(vvc_type, vvc_instance_id);
+}
+
 static void uvvm_cosim_foreign_vvc_listen_enable(const vhpiCbDataT* p_cb_data)
 {
   std::string vvc_type = get_vhpi_str_param_by_index(p_cb_data, 0);
@@ -180,6 +266,51 @@ static void register_foreign_methods(void)
 
   register_vhpi_foreign_method(uvvm_cosim_foreign_receive_packet_queue_put,
 			       "uvvm_cosim_foreign_receive_packet_queue_put",
+			       c_lib_name,
+			       vhpiProcF);
+
+  register_vhpi_foreign_method(uvvm_cosim_foreign_mm_request_empty,
+			       "uvvm_cosim_foreign_mm_request_empty",
+			       c_lib_name,
+			       vhpiFuncF);
+
+  register_vhpi_foreign_method(uvvm_cosim_foreign_mm_request_fetch,
+			       "uvvm_cosim_foreign_mm_request_fetch",
+			       c_lib_name,
+			       vhpiProcF);
+
+  register_vhpi_foreign_method(uvvm_cosim_foreign_mm_request_is_write,
+			       "uvvm_cosim_foreign_mm_request_is_write",
+			       c_lib_name,
+			       vhpiFuncF);
+
+  register_vhpi_foreign_method(uvvm_cosim_foreign_mm_request_get_addr,
+			       "uvvm_cosim_foreign_mm_request_get_addr",
+			       c_lib_name,
+			       vhpiFuncF);
+
+  register_vhpi_foreign_method(uvvm_cosim_foreign_mm_request_get_num_bytes,
+			       "uvvm_cosim_foreign_mm_request_get_num_bytes",
+			       c_lib_name,
+			       vhpiFuncF);
+
+  register_vhpi_foreign_method(uvvm_cosim_foreign_mm_request_get_byte,
+			       "uvvm_cosim_foreign_mm_request_get_byte",
+			       c_lib_name,
+			       vhpiFuncF);
+
+  register_vhpi_foreign_method(uvvm_cosim_foreign_mm_response_write_done,
+			       "uvvm_cosim_foreign_mm_response_write_done",
+			       c_lib_name,
+			       vhpiProcF);
+
+  register_vhpi_foreign_method(uvvm_cosim_foreign_mm_response_put_byte,
+			       "uvvm_cosim_foreign_mm_response_put_byte",
+			       c_lib_name,
+			       vhpiProcF);
+
+  register_vhpi_foreign_method(uvvm_cosim_foreign_mm_response_read_done,
+			       "uvvm_cosim_foreign_mm_response_read_done",
 			       c_lib_name,
 			       vhpiProcF);
 

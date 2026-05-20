@@ -17,6 +17,9 @@ context bitvis_vip_uart.vvc_context;
 library bitvis_vip_axistream;
 context bitvis_vip_axistream.vvc_context;
 
+library bitvis_vip_axilite;
+context bitvis_vip_axilite.vvc_context;
+
 library uvvm_cosim_lib;
 use uvvm_cosim_lib.uvvm_cosim_utils_pkg.all;
 use uvvm_cosim_lib.uvvm_cosim_foreign_pkg.all;
@@ -38,6 +41,7 @@ architecture func of uvvm_cosim is
   signal uart_rx_vvc_indexes_in_use : std_logic_vector(0 to C_UART_VVC_MAX_INSTANCE_NUM-1)      := (others => '0');
   signal uart_tx_vvc_indexes_in_use : std_logic_vector(0 to C_UART_VVC_MAX_INSTANCE_NUM-1)      := (others => '0');
   signal axis_vvc_indexes_in_use    : std_logic_vector(0 to C_AXISTREAM_VVC_MAX_INSTANCE_NUM-1) := (others => '0');
+  signal axilite_vvc_indexes_in_use : std_logic_vector(0 to C_AXILITE_VVC_MAX_INSTANCE_NUM-1)   := (others => '0');
 
 begin
 
@@ -87,6 +91,13 @@ begin
 
         -- Comma-separated string with VVC config
         bfm_cfg := bfm_cfg_to_string(shared_axistream_vvc_config(vvc_instance_id).bfm_config);
+
+      elsif strcmp("AXILITE_VVC", shared_vvc_activity_register.priv_get_vvc_name(idx)) then
+        -- Mark instance id as in use
+        axilite_vvc_indexes_in_use(vvc_instance_id) <= '1';
+
+        -- Comma-separated string with VVC config
+        bfm_cfg := bfm_cfg_to_string(shared_axilite_vvc_config(vvc_instance_id).bfm_config);
       else
         -- Unsupported VVC
         bfm_cfg := bfm_cfg_to_string(VOID);
@@ -147,5 +158,17 @@ begin
         init_done      => init_done);
 
   end generate g_axis_vvc_ctrl;
+
+  g_axilite_vvc_ctrl: for vvc_idx in 0 to C_AXILITE_VVC_MAX_INSTANCE_NUM-1 generate
+
+    inst_axilite_vvc_ctrl: entity uvvm_cosim_lib.uvvm_cosim_axilite_vvc_ctrl
+      generic map (
+        GC_VVC_IDX => vvc_idx)
+      port map (
+        clk            => clk,
+        vvc_idx_in_use => axilite_vvc_indexes_in_use(vvc_idx),
+        init_done      => init_done);
+
+  end generate g_axilite_vvc_ctrl;
 
 end architecture func;

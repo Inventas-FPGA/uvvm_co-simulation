@@ -1,7 +1,9 @@
 #pragma once
 #include <atomic>
 #include <cstdint>
+#include <map>
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 #include <jsonrpccxx/server.hpp>
@@ -115,6 +117,27 @@ public:
   auto TransmitPacketQueueGet(std::string vvc_type, int vvc_instance_id)
        -> std::optional<std::pair<uint8_t, bool>>;
   void ReceivePacketQueuePut(std::string vvc_type, int vvc_instance_id, uint8_t byte, bool eop);
+
+  // Memory-mapped VVC bridge — called from VHPI/FLI.
+  // MmRequestFetch atomically pops the front Transfer from QID_REQUEST into a
+  // per-VVC cache; subsequent MmRequestIsWrite/GetAddr/GetNumBytes/GetByte
+  // reads come from that cache. MmResponsePutByte stages bytes that are then
+  // finalized into QID_RESPONSE by MmResponseReadDone. These VHPI-side caches
+  // are only touched from the simulation thread so need no extra locking.
+  bool     MmRequestEmpty(std::string vvc_type, int vvc_instance_id);
+  void     MmRequestFetch(std::string vvc_type, int vvc_instance_id);
+  bool     MmRequestIsWrite(std::string vvc_type, int vvc_instance_id);
+  uint32_t MmRequestGetAddr(std::string vvc_type, int vvc_instance_id);
+  int      MmRequestGetNumBytes(std::string vvc_type, int vvc_instance_id);
+  uint8_t  MmRequestGetByte(std::string vvc_type, int vvc_instance_id, int byte_idx);
+  void     MmResponseWriteDone(std::string vvc_type, int vvc_instance_id);
+  void     MmResponsePutByte(std::string vvc_type, int vvc_instance_id, uint8_t byte);
+  void     MmResponseReadDone(std::string vvc_type, int vvc_instance_id);
+
+private:
+  using VvcKey = std::pair<std::string, int>;
+  std::map<VvcKey, Transfer>             mm_pending_request;
+  std::map<VvcKey, std::vector<uint8_t>> mm_read_staging;
 };
 
 } // namespace uvvm_cosim

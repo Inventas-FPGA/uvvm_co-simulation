@@ -11,6 +11,9 @@ context bitvis_vip_uart.vvc_context;
 library bitvis_vip_axistream;
 context bitvis_vip_axistream.vvc_context;
 
+library bitvis_vip_axilite;
+context bitvis_vip_axilite.vvc_context;
+
 package uvvm_cosim_utils_pkg is
 
   function to_string(constant ch : t_channel) return string;
@@ -31,6 +34,10 @@ package uvvm_cosim_utils_pkg is
 
   function bfm_cfg_to_string(
     constant cfg : t_uart_bfm_config)
+    return line;
+
+  function bfm_cfg_to_string(
+    constant cfg : t_axilite_bfm_config)
     return line;
 
   -- For unsupported VVCs/BFMs
@@ -106,6 +113,16 @@ package body uvvm_cosim_utils_pkg is
 
   function bfm_cfg_to_string(
     constant cfg : t_uart_bfm_config)
+    return line
+  is
+    variable v_line : line := new string'("");
+  begin
+    write(v_line, string'("cosim_support=1,"));
+    return v_line;
+  end function bfm_cfg_to_string;
+
+  function bfm_cfg_to_string(
+    constant cfg : t_axilite_bfm_config)
     return line
   is
     variable v_line : line := new string'("");
