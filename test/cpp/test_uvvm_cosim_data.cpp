@@ -292,14 +292,243 @@ TEST_CASE("UvvmCosimData_byte_queues")
 
 TEST_CASE("UvvmCosimData_packet_queues")
 {
-  INFO("TODO: Not implemented yet");
+  INFO("Exercise StreamQueue* against packet-based VVCs.");
+
+  UvvmCosimData cosim_data;
+
+  // Two packet-based AXI_STREAM VVCs.  bfm_cfg with packet_based=1 makes the
+  // factory build VvcPacketStreamBased; UvvmCosimData::StreamQueue* dispatches
+  // via virtual calls.
+  std::map<std::string, int> pkt_cfg{{"packet_based", 1}};
+
+  VvcIdentifier pkt_vvc_a{VvcTypes::AXI_STREAM, VvcChannel::NA, 1};
+  VvcIdentifier pkt_vvc_b{VvcTypes::AXI_STREAM, VvcChannel::NA, 2};
+
+  cosim_data.AddVvc(to_string(pkt_vvc_a.vvc_type), to_string(pkt_vvc_a.vvc_channel),
+                    pkt_vvc_a.vvc_instance_id, pkt_cfg);
+  cosim_data.AddVvc(to_string(pkt_vvc_b.vvc_type), to_string(pkt_vvc_b.vvc_channel),
+                    pkt_vvc_b.vvc_instance_id, pkt_cfg);
+
+  // Sanity: packet_based flag visible in GetVvcList().
+  auto list = cosim_data.GetVvcList();
+  REQUIRE(list.size() == 2);
+  for (auto& info : list) REQUIRE(info.packet_based == true);
+
+  // Whole-packet round-trip
+  std::vector<uint8_t> pkt_a{0x11, 0x22, 0x33, 0x44};
+  std::vector<uint8_t> pkt_b{0xAA, 0xBB};
+
+  cosim_data.StreamQueuePutPacket(QID_TRANSMIT, pkt_vvc_a, pkt_a);
+  cosim_data.StreamQueuePutPacket(QID_TRANSMIT, pkt_vvc_a, pkt_b);
+
+  REQUIRE(cosim_data.StreamQueueSize(QID_TRANSMIT, pkt_vvc_a) == 2);  // two packets
+  REQUIRE_FALSE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, pkt_vvc_a));
+
+  // num_bytes is ignored for packet VVCs - returns next complete packet
+  REQUIRE(cosim_data.StreamQueueGetPacket(QID_TRANSMIT, pkt_vvc_a, 99) == pkt_a);
+  REQUIRE(cosim_data.StreamQueueGetPacket(QID_TRANSMIT, pkt_vvc_a, 0)  == pkt_b);
+  REQUIRE(cosim_data.StreamQueueEmpty(QID_TRANSMIT, pkt_vvc_a));
+
+  // Byte-wise put with eop delimits packets
+  cosim_data.StreamQueuePutByte(QID_RECEIVE, pkt_vvc_b, 0xDE, false);
+  cosim_data.StreamQueuePutByte(QID_RECEIVE, pkt_vvc_b, 0xAD, true);   // closes packet 1
+  cosim_data.StreamQueuePutByte(QID_RECEIVE, pkt_vvc_b, 0xBE, false);
+  cosim_data.StreamQueuePutByte(QID_RECEIVE, pkt_vvc_b, 0xEF, true);   // closes packet 2
+  REQUIRE(cosim_data.StreamQueueSize(QID_RECEIVE, pkt_vvc_b) == 2);
+
+  // Byte-wise get returns eop flag
+  auto b = cosim_data.StreamQueueGetByte(QID_RECEIVE, pkt_vvc_b);
+  REQUIRE(b.has_value());
+  REQUIRE(b->first == 0xDE);
+  REQUIRE(b->second == false);
+
+  b = cosim_data.StreamQueueGetByte(QID_RECEIVE, pkt_vvc_b);
+  REQUIRE(b->first == 0xAD);
+  REQUIRE(b->second == true);    // last byte of packet 1
+
+  // Read second packet whole
+  REQUIRE(cosim_data.StreamQueueGetPacket(QID_RECEIVE, pkt_vvc_b, 0)
+          == std::vector<uint8_t>{0xBE, 0xEF});
+  REQUIRE(cosim_data.StreamQueueEmpty(QID_RECEIVE, pkt_vvc_b));
+
+  // Empty queue: GetByte returns nullopt, GetPacket returns empty vector
+  REQUIRE_FALSE(cosim_data.StreamQueueGetByte(QID_TRANSMIT, pkt_vvc_b).has_value());
+  REQUIRE(cosim_data.StreamQueueGetPacket(QID_TRANSMIT, pkt_vvc_b, 0).empty());
 }
 
-TEST_CASE("UvvmCosimData_packet_based_queue_access")
+TEST_CASE("UvvmCosimData_packet_byte_dual_access")
 {
-  INFO("TODO: Not implemented yet");
+  UvvmCosimData cosim_data;
 
-  // Check that only packet queue methods can be used for
-  // VVCs with packet_based flag set, and only byte queue
-  // methods for those without the flag.
+  std::map<std::string, int> byte_cfg{};
+  std::map<std::string, int> pkt_cfg {{"packet_based", 1}};
+
+  VvcIdentifier byte_vvc{VvcTypes::AXI_STREAM, VvcChannel::NA, 10};
+  VvcIdentifier pkt_vvc {VvcTypes::AXI_STREAM, VvcChannel::NA, 20};
+
+  cosim_data.AddVvc("AXISTREAM_VVC", "NA", byte_vvc.vvc_instance_id, byte_cfg);
+  cosim_data.AddVvc("AXISTREAM_VVC", "NA", pkt_vvc.vvc_instance_id,  pkt_cfg);
+
+  INFO("Byte VVC: eop arg to PutByte is ignored, GetByte always returns eop=false");
+  cosim_data.StreamQueuePutByte(QID_TRANSMIT, byte_vvc, 0x01, /*eop=*/true);
+  cosim_data.StreamQueuePutByte(QID_TRANSMIT, byte_vvc, 0x02, /*eop=*/false);
+
+  auto b = cosim_data.StreamQueueGetByte(QID_TRANSMIT, byte_vvc);
+  REQUIRE(b.has_value());
+  REQUIRE(b->first  == 0x01);
+  REQUIRE(b->second == false);   // byte stream never reports eop
+
+  b = cosim_data.StreamQueueGetByte(QID_TRANSMIT, byte_vvc);
+  REQUIRE(b->first  == 0x02);
+  REQUIRE(b->second == false);
+
+  INFO("Byte VVC: PutPacket appends bytes without a boundary; GetPacket(N) returns first N");
+  cosim_data.StreamQueuePutPacket(QID_TRANSMIT, byte_vvc,
+                                  std::vector<uint8_t>{0xA, 0xB, 0xC, 0xD});
+  REQUIRE(cosim_data.StreamQueueSize(QID_TRANSMIT, byte_vvc) == 4);
+
+  auto first_two = cosim_data.StreamQueueGetPacket(QID_TRANSMIT, byte_vvc, 2);
+  REQUIRE(first_two == std::vector<uint8_t>{0xA, 0xB});
+
+  INFO("Packet VVC: PutByte(eop=true) closes a packet; num_bytes arg to GetPacket is ignored");
+  cosim_data.StreamQueuePutByte(QID_RECEIVE, pkt_vvc, 0x77, /*eop=*/true);
+  REQUIRE(cosim_data.StreamQueueSize(QID_RECEIVE, pkt_vvc) == 1);
+  // num_bytes=99 should be ignored — returns the complete single-byte packet
+  REQUIRE(cosim_data.StreamQueueGetPacket(QID_RECEIVE, pkt_vvc, 99)
+          == std::vector<uint8_t>{0x77});
+}
+
+TEST_CASE("UvvmCosimData_mem_mapped_queues")
+{
+  INFO("Add one mem-mapped VVC of each type and round-trip Transfers.");
+
+  UvvmCosimData cosim_data;
+
+  std::map<std::string, int> cfg{};
+  VvcIdentifier axilite{VvcTypes::AXILITE,    VvcChannel::NA, 0};
+  VvcIdentifier axi    {VvcTypes::AXI,        VvcChannel::NA, 1};
+  VvcIdentifier avmm   {VvcTypes::AVALON_MM,  VvcChannel::NA, 2};
+
+  cosim_data.AddVvc("AXILITE_VVC",   "NA", axilite.vvc_instance_id, cfg);
+  cosim_data.AddVvc("AXI_VVC",       "NA", axi.vvc_instance_id,     cfg);
+  cosim_data.AddVvc("AVALON_MM_VVC", "NA", avmm.vvc_instance_id,    cfg);
+
+  REQUIRE(cosim_data.GetVvcList().size() == 3);
+
+  // Empty initially
+  REQUIRE(cosim_data.MemQueueEmpty(QID_REQUEST,  axilite));
+  REQUIRE(cosim_data.MemQueueEmpty(QID_RESPONSE, axilite));
+  REQUIRE_FALSE(cosim_data.MemQueueGet(QID_REQUEST, axilite).has_value());
+
+  // Push two write requests, one read request
+  Transfer w1; w1.addr = 0x0100; w1.data = {0xDE, 0xAD};                  w1.num_bytes = 2;
+  Transfer w2; w2.addr = 0x0200; w2.data = {0xBE, 0xEF, 0xCA, 0xFE};      w2.num_bytes = 4;
+  Transfer r1; r1.addr = 0x0300; r1.addr_increment = false;               r1.num_bytes = 8;
+
+  cosim_data.MemQueuePut(QID_REQUEST, axilite, w1);
+  cosim_data.MemQueuePut(QID_REQUEST, axilite, w2);
+  cosim_data.MemQueuePut(QID_REQUEST, axilite, r1);
+
+  REQUIRE_FALSE(cosim_data.MemQueueEmpty(QID_REQUEST, axilite));
+
+  // FIFO order
+  auto t1 = cosim_data.MemQueueGet(QID_REQUEST, axilite);
+  REQUIRE(t1.has_value());
+  REQUIRE(t1->addr == 0x0100);
+  REQUIRE(t1->data == std::vector<uint8_t>{0xDE, 0xAD});
+
+  auto t2 = cosim_data.MemQueueGet(QID_REQUEST, axilite);
+  REQUIRE(t2->addr == 0x0200);
+  REQUIRE(t2->num_bytes == 4);
+
+  auto t3 = cosim_data.MemQueueGet(QID_REQUEST, axilite);
+  REQUIRE(t3->addr == 0x0300);
+  REQUIRE(t3->data.empty());          // read request
+  REQUIRE(t3->addr_increment == false);
+
+  REQUIRE(cosim_data.MemQueueEmpty(QID_REQUEST, axilite));
+  REQUIRE_FALSE(cosim_data.MemQueueGet(QID_REQUEST, axilite).has_value());
+
+  // Response queue is independent
+  Transfer resp; resp.addr = 0x0300; resp.data = {0x01, 0x02, 0x03, 0x04};
+  cosim_data.MemQueuePut(QID_RESPONSE, axi, resp);
+  REQUIRE_FALSE(cosim_data.MemQueueEmpty(QID_RESPONSE, axi));
+  REQUIRE(cosim_data.MemQueueEmpty(QID_REQUEST,  axi));   // request queue untouched
+  REQUIRE(cosim_data.MemQueueEmpty(QID_RESPONSE, axilite)); // different VVC untouched
+
+  auto r = cosim_data.MemQueueGet(QID_RESPONSE, axi);
+  REQUIRE(r.has_value());
+  REQUIRE(r->data == std::vector<uint8_t>{0x01, 0x02, 0x03, 0x04});
+}
+
+TEST_CASE("UvvmCosimData_wrong_vvc_kind_throws")
+{
+  // The dynamic_cast guards in getStreamVvc / getMemVvc must reject the
+  // wrong family of VVC.
+  UvvmCosimData cosim_data;
+
+  std::map<std::string, int> cfg{};
+  VvcIdentifier uart   {VvcTypes::UART,    VvcChannel::TX, 0};
+  VvcIdentifier axilite{VvcTypes::AXILITE, VvcChannel::NA, 0};
+
+  cosim_data.AddVvc("UART_VVC",    "TX", 0, cfg);
+  cosim_data.AddVvc("AXILITE_VVC", "NA", 0, cfg);
+
+  // Stream API on a mem-mapped VVC must throw
+  REQUIRE_THROWS(cosim_data.StreamQueueEmpty(QID_TRANSMIT, axilite));
+  REQUIRE_THROWS(cosim_data.StreamQueuePutByte(QID_TRANSMIT, axilite, 0, false));
+
+  // Mem API on a stream VVC must throw
+  Transfer t;
+  REQUIRE_THROWS(cosim_data.MemQueueEmpty(QID_REQUEST, uart));
+  REQUIRE_THROWS(cosim_data.MemQueuePut(QID_REQUEST,   uart, t));
+  REQUIRE_THROWS(cosim_data.MemQueueGet(QID_RESPONSE,  uart));
+}
+
+TEST_CASE("UvvmCosimData_simulation_flags")
+{
+  UvvmCosimData cosim_data;
+
+  REQUIRE(cosim_data.getStartSim()     == false);
+  REQUIRE(cosim_data.getTerminateSim() == false);
+
+  cosim_data.setStartSim(true);
+  REQUIRE(cosim_data.getStartSim()     == true);
+  REQUIRE(cosim_data.getTerminateSim() == false);
+
+  cosim_data.setTerminateSim(true);
+  REQUIRE(cosim_data.getTerminateSim() == true);
+
+  cosim_data.setStartSim(false);
+  cosim_data.setTerminateSim(false);
+  REQUIRE(cosim_data.getStartSim()     == false);
+  REQUIRE(cosim_data.getTerminateSim() == false);
+}
+
+TEST_CASE("UvvmCosimData_GetVvcListenEnable")
+{
+  UvvmCosimData cosim_data;
+  std::map<std::string, int> cfg{};
+  VvcIdentifier id{VvcTypes::UART, VvcChannel::TX, 0};
+
+  cosim_data.AddVvc("UART_VVC", "TX", 0, cfg);
+
+  REQUIRE(cosim_data.GetVvcListenEnable(id) == false);
+  cosim_data.SetVvcListenEnable(id, true);
+  REQUIRE(cosim_data.GetVvcListenEnable(id) == true);
+
+  VvcIdentifier missing{VvcTypes::UART, VvcChannel::TX, 99};
+  REQUIRE_THROWS(cosim_data.GetVvcListenEnable(missing));
+}
+
+TEST_CASE("UvvmCosimData_AddVvc_unsupported_type_silently_skipped")
+{
+  // The factory throws on unknown types; UvvmCosimData::AddVvc catches that
+  // and prints a warning instead of propagating.
+  UvvmCosimData cosim_data;
+  std::map<std::string, int> cfg{};
+
+  // Should NOT throw; should NOT add anything
+  cosim_data.AddVvc("CLOCK_GENERATOR_VVC", "NA", 0, cfg);
+  REQUIRE(cosim_data.GetVvcList().empty());
 }
