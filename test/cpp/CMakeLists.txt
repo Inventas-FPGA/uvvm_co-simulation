@@ -22,6 +22,7 @@ function(add_uvvm_cosim_test name)
   catch_discover_tests(${name})
   if (ENABLE_COVERAGE)
     append_coverage_compiler_flags_to_target(${name})
+    target_compile_options(${name} PRIVATE -fprofile-update=atomic)
   endif()
 endfunction()
 
