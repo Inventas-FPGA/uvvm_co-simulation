@@ -99,6 +99,11 @@ if(ENABLE_UNIT_TESTS)
     include(CodeCoverage)
     append_coverage_compiler_flags_to_target(uvvm_cosim_vhpi)
     append_coverage_compiler_flags_to_target(uvvm_cosim_fli)
+    # Atomic counter updates: required because test_shared_map exercises
+    # multi-threaded code, and non-atomic gcov counters can race and yield
+    # negative counts that lcov rejects.
+    target_compile_options(uvvm_cosim_vhpi PRIVATE -fprofile-update=atomic)
+    target_compile_options(uvvm_cosim_fli PRIVATE -fprofile-update=atomic)
   endif()
 
   enable_testing()

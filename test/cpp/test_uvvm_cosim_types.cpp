@@ -78,3 +78,55 @@ TEST_CASE("VvcInfo_to_json")
     REQUIRE(j["bfm_cfg"][k] == v);
   }
 }
+
+TEST_CASE("JsonResponse_to_from_json_round_trip")
+{
+  // JsonResponse is the wrapper returned by every RPC method.  to_json/from_json
+  // are used by jsonrpccxx to serialize replies and (in the C++ client) to
+  // deserialize them.
+  JsonResponse out;
+  out.success = true;
+  out.result  = nlohmann::json{{"foo", 1}, {"bar", "baz"}, {"arr", {1, 2, 3}}};
+
+  nlohmann::json j = out;
+  REQUIRE(j.contains("success"));
+  REQUIRE(j.contains("result"));
+  REQUIRE(j["success"] == true);
+  REQUIRE(j["result"]["foo"] == 1);
+  REQUIRE(j["result"]["bar"] == "baz");
+
+  JsonResponse roundtripped = j.get<JsonResponse>();
+  REQUIRE(roundtripped.success == out.success);
+  REQUIRE(roundtripped.result  == out.result);
+
+  // success=false case
+  JsonResponse fail{false, nlohmann::json{{"error", "nope"}}};
+  nlohmann::json jf = fail;
+  REQUIRE(jf["success"] == false);
+  REQUIRE(jf["result"]["error"] == "nope");
+  JsonResponse fail_rt = jf.get<JsonResponse>();
+  REQUIRE(fail_rt.success == false);
+  REQUIRE(fail_rt.result["error"] == "nope");
+}
+
+TEST_CASE("VvcCompare_equal_identifiers")
+{
+  // Equal keys must compare !(a < b) && !(b < a) — required for std::map
+  // to treat them as the same key.
+  VvcCompare cmp;
+  VvcIdentifier a{VvcTypes::UART, VvcChannel::TX, 3};
+  VvcIdentifier b{VvcTypes::UART, VvcChannel::TX, 3};
+
+  REQUIRE_FALSE(cmp(a, b));
+  REQUIRE_FALSE(cmp(b, a));
+
+  // Differing only by instance_id: ordering follows instance_id
+  VvcIdentifier c{VvcTypes::UART, VvcChannel::TX, 4};
+  REQUIRE(cmp(a, c));
+  REQUIRE_FALSE(cmp(c, a));
+
+  // Differing only by channel: ordering follows channel enum
+  VvcIdentifier d{VvcTypes::UART, VvcChannel::RX, 3};
+  REQUIRE(cmp(d, a));         // RX(1) < TX(2)
+  REQUIRE_FALSE(cmp(a, d));
+}
