@@ -440,6 +440,7 @@ TEST_CASE("UvvmCosimData_mem_mapped_queues")
   auto t2 = cosim_data.MemQueueGet(QID_REQUEST, axilite);
   REQUIRE(t2->addr == 0x0200);
   REQUIRE(t2->num_bytes == 4);
+  REQUIRE(t2->data == std::vector<uint8_t>{0xBE, 0xEF, 0xCA, 0xFE});
 
   auto t3 = cosim_data.MemQueueGet(QID_REQUEST, axilite);
   REQUIRE(t3->addr == 0x0300);
